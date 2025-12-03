@@ -1,5 +1,7 @@
 use clap::Parser;
+use std::env;
 use std::path::PathBuf;
+use walkdir::WalkDir;
 
 #[derive(clap::Parser)]
 #[command(name = "treeclip")]
@@ -10,38 +12,80 @@ use std::path::PathBuf;
 )]
 #[command(next_line_help = true)]
 struct Cli {
-    #[command(subcommand)]
-    command: Option<Commands>,
-}
+    /// Path to traverse (defaults to current directory)
+    #[arg(default_value_t = String::from("."))]
+    input_path: String,
 
-#[derive(clap::Subcommand)]
-enum Commands {
-    /// Process files in the specified path
-    Path {
-        /// Path to traverse (defaults to current directory)
-        #[arg(default_value_t = String::from("."))]
-        path: String,
-    },
+    /// Output path for extracted file (defaults to current directory)
+    #[arg(default_value_t = String::from("."))]
+    output_path: String,
+
+    /// Exclude files/folders matching these patterns
+    #[arg(short, long)]
+    exclude: Vec<String>,
+
+    /// Copy output to clipboard
+    #[arg(long, default_value_t = true)]
+    clipboard: bool,
+
+    /// Show clipboard content statistics
+    #[arg(long, default_value_t = false)]
+    stats: bool,
+
+    /// Open output file in the default text editor
+    #[arg(long, default_value_t = false)]
+    editor: bool,
+
+    /// Delete the output file after editor is closed
+    #[arg(long, default_value_t = false)]
+    delete: bool,
+
+    /// Verbose output
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
-    match cli.command {
-        Some(Commands::Path { path }) => {
-            run_treeclip(&path)?;
+    if cli.verbose {
+        println!("🚀 Starting TreeClip...");
+        println!("📁 Input Path: {}", cli.output_path);
+        println!("📋 Clipboard: {}", cli.clipboard);
+        println!("📊 Stats: {}", cli.stats);
+        println!("✏️  Editor: {}", cli.editor);
+        println!("🗑️  Delete: {}", cli.delete);
+        if !cli.exclude.is_empty() {
+            println!("🚫 Exclude patterns: {:?}", cli.exclude);
         }
-        None => {
-            // If no command provided, default to run in current directory
-            println!("Running treeclip in current directory...");
-            run_treeclip(".")?;
-        }
+    }
+
+    // Your core logic would run here
+    run_treeclip(
+        &cli.output_path,
+        &cli.exclude,
+        &cli.output_path,
+        cli.verbose,
+    )?;
+
+    // TODO: Implement clipboard and editor logic based on the boolean flags
+    if cli.clipboard {
+        println!("(Would copy to clipboard)");
+    }
+
+    if cli.editor {
+        println!("(Would open in editor)");
     }
 
     Ok(())
 }
 
-fn run_treeclip(path: &str) -> anyhow::Result<()> {
+fn run_treeclip(
+    path: &str,
+    exclude_paths: &[String],
+    output_path: &str,
+    verbose: bool,
+) -> anyhow::Result<()> {
     let path_buf = PathBuf::from(path);
 
     // Check if path exists
@@ -49,15 +93,15 @@ fn run_treeclip(path: &str) -> anyhow::Result<()> {
         anyhow::bail!("Path does not exist: {}", path);
     }
 
-    println!("Traversing directory: {}", path_buf.display());
+    if path.eq(".") {
+        let cwd = env::current_dir()?;
+        println!("Traversing directory: {}", cwd.display());
+    } else {
+        println!("Traversing directory: {}", path_buf.display());
+    }
 
-    // Use walkdir for recursive traversal
-    use walkdir::WalkDir;
-
-    for entry in WalkDir::new(&path_buf)
-        .into_iter()
-        .filter_map(|e| e.ok()) // Skip entries we can't access
-    {
+    // Skip entries we can't access
+    for entry in WalkDir::new(&path_buf).into_iter().filter_map(|e| e.ok()) {
         let path = entry.path();
         if path.is_file() {
             println!("📄 {}", path.display());
