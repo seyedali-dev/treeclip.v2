@@ -1,12 +1,14 @@
+use std::path::PathBuf;
+
 #[derive(clap::Args)]
 pub struct RunArgs {
     /// Path to traverse (defaults to current directory)
-    #[arg(default_value_t = String::from("."))]
-    pub input_path: String,
+    #[arg(default_value = ".", value_parser = validate_path)]
+    pub input_path: PathBuf,
 
-    /// Output path for extracted file (defaults to current directory)
-    #[arg(default_value_t = String::from("."))]
-    pub output_path: String,
+    /// Output path for extracted file
+    #[arg(default_value = ".", value_parser = validate_path)]
+    pub output_path: PathBuf,
 
     /// Exclude files/folders matching these patterns
     #[arg(short, long)]
@@ -31,4 +33,13 @@ pub struct RunArgs {
     /// Verbose output
     #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
+}
+
+fn validate_path(s: &str) -> Result<PathBuf, String> {
+    let path = PathBuf::from(s);
+    // Basic validation - path doesn't need to exist yet
+    if s.is_empty() {
+        return Err("Path cannot be empty".to_string());
+    }
+    Ok(path)
 }
