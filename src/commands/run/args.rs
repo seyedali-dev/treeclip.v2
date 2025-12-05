@@ -8,7 +8,7 @@ pub struct RunArgs {
 
     /// Output path for extracted file
     #[arg(default_value = ".", value_parser = validate_path)]
-    pub output_path: PathBuf,
+    pub output_path: Option<PathBuf>,
 
     /// Exclude files/folders matching these patterns
     #[arg(short, long)]
@@ -33,6 +33,10 @@ pub struct RunArgs {
     /// Verbose output
     #[arg(short, long, default_value_t = false)]
     pub verbose: bool,
+
+    /// Skip hidden files and folders in Unix systems
+    #[arg(short, long, default_value_t = true)]
+    pub skip_hidden: bool,
 }
 
 fn validate_path(s: &str) -> Result<PathBuf, String> {

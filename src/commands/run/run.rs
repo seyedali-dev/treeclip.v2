@@ -1,5 +1,6 @@
 use super::args::RunArgs;
 use crate::core::traversal;
+use std::path;
 
 pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     if args.verbose {
@@ -7,12 +8,7 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     }
 
     // Run core logic
-    traversal::walker::process_dir(
-        &args.input_path,
-        &args.exclude,
-        &args.output_path,
-        args.verbose,
-    )?;
+    traversal::walker::process_dir(&args)?;
 
     if args.clipboard {
         // Will implement later
@@ -33,7 +29,13 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
 fn log_startup(args: &RunArgs) {
     println!("🚀 Starting TreeClip...");
     println!("📁 Input Path: {}", args.input_path.display());
-    println!("📁 Output Path: {}", args.output_path.display());
+    println!(
+        "📁 Output Path: {}",
+        args.output_path
+            .clone()
+            .unwrap_or(path::PathBuf::from("."))
+            .display()
+    );
     println!("📋 Clipboard: {}", args.clipboard);
     println!("📊 Stats: {}", args.stats);
     println!("✏️  Editor: {}", args.editor);

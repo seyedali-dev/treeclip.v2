@@ -1,22 +1,17 @@
+use crate::commands::run::args::RunArgs;
 use std::path::Path;
 use walkdir::WalkDir;
 
-pub fn process_dir(
-    input_path: &Path,
-    exclude_patterns: &[String],
-    _output_path: &Path,
-    verbose: bool,
-) -> anyhow::Result<()> {
-    validate_path_exists(input_path)?;
-
-    log_starting_path(input_path);
-    traverse_directory(input_path, exclude_patterns, verbose)?;
-
-    // TODO: Implement actual file extraction
-    if verbose {
-        println!("✅ Extraction complete");
-    }
-
+pub fn process_dir(run_args: &RunArgs) -> anyhow::Result<()> {
+    validate_path_exists(&run_args.input_path)?;
+    log_starting_path(&run_args.input_path);
+    traverse_directory(
+        &run_args.input_path,
+        &run_args.exclude,
+        run_args.skip_hidden,
+        run_args.verbose,
+    )?;
+    println!("✅ Extraction complete");
     Ok(())
 }
 
@@ -40,11 +35,14 @@ fn log_starting_path(path: &Path) {
 fn traverse_directory(
     root: &Path,
     exclude_patterns: &[String],
+    skip_hidden: bool,
     verbose: bool,
 ) -> anyhow::Result<()> {
-    let walker = WalkDir::new(root)
-        .into_iter()
-        .filter_entry(|e| !should_exclude(e.path(), exclude_patterns));
+    let walker = WalkDir::new(root).into_iter().filter_entry(|entry| {
+        let non_excluded_path = !should_exclude(entry.path(), exclude_patterns);
+        let non_hidden_path = !skip_hidden || !is_hidden(entry);
+        non_excluded_path && non_hidden_path
+    });
 
     for entry in walker.filter_map(|e| e.ok()) {
         let path = entry.path();
@@ -73,4 +71,18 @@ fn should_exclude(path: &Path, patterns: &[String]) -> bool {
     patterns
         .iter()
         .any(|pattern| path_str.contains(&pattern.to_lowercase()))
+}
+
+fn is_hidden(entry: &walkdir::DirEntry) -> bool {
+    entry
+        .file_name()
+        .to_str()
+        .map(|str| {
+            let hidden_entry = str.starts_with(".");
+            if hidden_entry {
+                println!("Hidden entry '{}' was skipped", entry.path().display());
+            }
+            hidden_entry
+        })
+        .unwrap_or(false)
 }
