@@ -18,7 +18,7 @@ pub fn run(run_args: args::RunArgs) -> anyhow::Result<()> {
 
     // Your core logic would run here
     run_treeclip(
-        &run_args.output_path,
+        &run_args.input_path,
         &run_args.exclude,
         &run_args.output_path,
         run_args.verbose,
@@ -37,19 +37,19 @@ pub fn run(run_args: args::RunArgs) -> anyhow::Result<()> {
 }
 
 fn run_treeclip(
-    path: &str,
+    input_path: &str,
     _exclude_paths: &[String],
     _output_path: &str,
     _verbose: bool,
 ) -> anyhow::Result<()> {
-    let path_buf = PathBuf::from(path);
+    let path_buf = PathBuf::from(input_path);
 
     // Check if path exists
     if !path_buf.exists() {
-        anyhow::bail!("Path does not exist: {}", path);
+        anyhow::bail!("Path does not exist: {}", input_path);
     }
 
-    if path.eq(".") {
+    if input_path.eq(".") {
         let cwd = env::current_dir()?;
         println!("Traversing directory: {}", cwd.display());
     } else {
