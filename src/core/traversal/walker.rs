@@ -39,11 +39,17 @@ impl Walker {
         });
 
         let mut file = File::options()
-            .append(true)
+            .write(true)
+            .truncate(true)
             .create(true)
             .open(&self.output)?;
         for entry in walker.filter_map(|e| e.ok()) {
             let entry_path = entry.path();
+
+            // skip reading output itself
+            if entry_path.eq(&self.output) {
+                continue;
+            }
 
             if entry_path.is_file() {
                 if verbose {
@@ -60,15 +66,22 @@ impl Walker {
                 // Read and write content
                 let content = fs::read_to_string(entry_path)
                     .context(format!("reading file {} failed", entry_path.display()))?;
-                file.write_all(b"\n")
-                    .context("failed to write new_line to file")?;
-                file.write_all(content.as_bytes())
+                let trimmed = content.trim_end();
+                file.write_all(trimmed.as_bytes())
                     .context("failed to write content to file")?;
-
                 // Add new line between files
+                writeln!(file)?;
                 writeln!(file)?;
             }
         }
+        let output_content = fs::read_to_string(&self.output)?;
+        let output_content = output_content.trim_end();
+        let mut file = File::options()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(&self.output)?;
+        writeln!(file, "{}", output_content)?;
 
         Ok(())
     }
@@ -204,20 +217,20 @@ mod tests {
 
         // Read and verify output
         let output_content = fs::read_to_string(&output_path)?;
-        println!("Output content:\n{}", output_content); // Debug
+        println!("\n beg----");
+        print!("Output content:\n{}", output_content); // Debug
+        println!("\n end----");
 
         // Check format more precisely
         let expected = "\
-==> file1.txt
-Content of file 1
-
 ==> subdir/file2.txt
 Content of file 2
 
-";
+==> file1.txt
+Content of file 1
+"; // <-- this is new line
 
-        // Compare normalized output (trim trailing whitespace differences)
-        assert_eq!(output_content.trim_end(), expected.trim_end());
+        assert_eq!(output_content, expected);
 
         Ok(())
     }

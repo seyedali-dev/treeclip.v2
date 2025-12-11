@@ -1,7 +1,7 @@
 use super::args::RunArgs;
 use crate::core::traversal::walker;
 use std::path;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     if args.verbose {
@@ -9,8 +9,11 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     }
 
     // Run core logic
-    let default_path = PathBuf::from(".");
-    let output = args.output_path.as_ref().unwrap_or(&default_path);
+    let output = match &args.output_path {
+        Some(path) if path == Path::new(".") => PathBuf::from("./treeclip_temp.txt"),
+        Some(path) => path.clone(),
+        None => PathBuf::from("./treeclip_temp.txt"),
+    };
     let walker = walker::Walker::new(&args.input_path, &output, &args.exclude);
     walker.process_dir(&args)?;
 
