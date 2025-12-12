@@ -45,6 +45,7 @@ impl Walker {
             .truncate(true)
             .create(true)
             .open(&self.output)?;
+        let mut first = true;
         for entry in walker.filter_map(|e| e.ok()) {
             let entry_path = entry.path();
 
@@ -61,6 +62,10 @@ impl Walker {
 
                 let relative_path = entry_path.strip_prefix(&self.root).unwrap_or(entry_path);
 
+                if !first {
+                    writeln!(file)?;
+                }
+
                 // Write the header: ==> relative/path
                 writeln!(file, "==> {}", relative_path.display())
                     .context("failed to write path header")?;
@@ -68,23 +73,14 @@ impl Walker {
                 // Read and write content
                 let content = fs::read_to_string(entry_path)
                     .context(format!("reading file {} failed", entry_path.display()))?;
-                let trimmed = content.trim_end();
-                file.write_all(trimmed.as_bytes())
+                file.write_all(content.trim_end().as_bytes())
                     .context("failed to write content to file")?;
+
                 // Add new line between files
                 writeln!(file)?;
-                writeln!(file)?;
+                first = false;
             }
         }
-        let output_content = fs::read_to_string(&self.output)?;
-        let output_content = output_content.trim_end();
-        let mut file = File::options()
-            .write(true)
-            .truncate(true)
-            .create(true)
-            .open(&self.output)?;
-        writeln!(file, "{}", output_content)?;
-
         Ok(())
     }
 }
