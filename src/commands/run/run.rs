@@ -1,4 +1,5 @@
 use super::args::RunArgs;
+use crate::core::clipboard::clipboard;
 use crate::core::traversal::walker;
 use std::path::{Path, PathBuf};
 use std::{env, io, path};
@@ -31,8 +32,7 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     walker.process_dir(&args)?;
 
     if args.clipboard {
-        // Will implement later
-        println!("(Would copy to clipboard)");
+        clipboard::Clipboard::new(&output).set_clipboard()?;
     }
 
     if args.editor {
