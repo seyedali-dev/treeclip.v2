@@ -1,7 +1,5 @@
 use super::args::RunArgs;
-use crate::core::clipboard::clipboard;
-use crate::core::traversal::walker;
-use crate::core::utils;
+use crate::core::{clipboard::clipboard, editor::editor, traversal::walker, utils};
 use std::path::{Path, PathBuf};
 use std::{env, fs, io, path};
 
@@ -51,7 +49,7 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     }
 
     if args.editor {
-        println!("(Would open in editor)");
+        editor::open(&output)?;
     }
 
     if args.delete && args.editor {
