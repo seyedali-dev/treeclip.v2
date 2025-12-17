@@ -1,0 +1,1 @@
+pub const RIGHT_PADDING: usize = 40;

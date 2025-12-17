@@ -1,3 +1,5 @@
+use crate::core::constants;
+use colored::Colorize;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use std::path::Path;
 
@@ -13,6 +15,13 @@ impl ExcludeMatcher {
         let ignore_file = root.join(".treeclipignore");
         //TODO: path is said to be concurrent non-safe = [https://doc.rust-lang.org/stable/std/fs/index.html#:~:text=For%20example%2C%20checking%20if%20a%20file%20exists%20and%20then%20creating%20it%20if%20it%20doesn%E2%80%99t%20is%20vulnerable%20to%20TOCTOU%20%2D%20another%20process%20could%20create%20the%20file%20between%20your%20check%20and%20creation%20attempt]
         if ignore_file.exists() {
+            println!(
+                "{} {:<width$} {}",
+                "🚫",
+                " Exclude file (.treeclipignore) found at".bold(),
+                ignore_file.display().to_string().cyan(),
+                width = constants::RIGHT_PADDING,
+            );
             builder.add(ignore_file);
         }
 

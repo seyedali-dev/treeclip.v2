@@ -6,7 +6,7 @@ use anyhow::Context;
 use std::fs;
 use std::fs::File;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
 pub struct Walker {
@@ -35,9 +35,8 @@ impl Walker {
 impl Walker {
     pub fn process_dir(&self, run_args: &RunArgs) -> anyhow::Result<()> {
         utils::validate_path_exists(&run_args.input_path)?;
-        log_starting_path(&run_args.input_path);
         self.traverse(run_args.skip_hidden, run_args.verbose)?;
-        println!("✅ Extraction complete");
+        println!("{} {:<20}", "✅", " Extraction complete");
         Ok(())
     }
 
@@ -97,20 +96,11 @@ impl Walker {
     }
 }
 
-fn log_starting_path(path: &Path) {
-    if path == Path::new(".") {
-        if let Ok(cwd) = std::env::current_dir() {
-            println!("Traversing directory: {}", cwd.display());
-        }
-    } else {
-        println!("Traversing directory: {}", path.display());
-    }
-}
-
 #[cfg(test)]
 mod walker_tests {
     use super::*;
     use std::fs;
+    use std::path::Path;
     use tempfile::TempDir;
 
     #[test]

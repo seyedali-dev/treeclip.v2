@@ -1,13 +1,11 @@
 use super::args::RunArgs;
+use crate::core::constants;
 use crate::core::{clipboard::clipboard, editor::editor, traversal::walker, utils};
+use colored::Colorize;
 use std::path::{Path, PathBuf};
-use std::{env, fs, path};
+use std::{env, fs};
 
 pub fn execute(args: RunArgs) -> anyhow::Result<()> {
-    if args.verbose {
-        log_startup(&args);
-    }
-
     let input = if &args.input_path == Path::new(".") {
         env::current_dir()?
     } else {
@@ -26,6 +24,8 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
         None => env::current_dir()?,
     };
 
+    log_info(&args, &root, &input, &output)?;
+
     // Run core logic
     let walker = walker::Walker::new(&root, &input, &output, &args.exclude);
     walker.process_dir(&args)?;
@@ -42,11 +42,11 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
         let words = content.split_whitespace().count();
         let bytes = content.len();
 
-        println!("📊  Clipboard content stats:");
-        println!("   📝  Characters: {}", utils::format_number(chars as i64));
-        println!("   📄  Lines     : {}", utils::format_number(lines as i64));
-        println!("   💬  Words     : {}", utils::format_number(words as i64));
-        println!("   💾  Size      : {}", utils::format_bytes(bytes));
+        #[rustfmt::skip] println!("{} {:<width$}", "📊", " Clipboard content stats:".bold().white(), width = constants::RIGHT_PADDING);
+        #[rustfmt::skip] println!("  {} {:<12} {:>10}", "📝", " Characters".italic(), utils::format_number(chars as i64).dimmed());
+        #[rustfmt::skip] println!("  {} {:<12} {:>10}", "📄", " Lines".italic(), utils::format_number(lines as i64).dimmed());
+        #[rustfmt::skip] println!("  {} {:<12} {:>10}", "💬", " Words".italic(), utils::format_number(words as i64).dimmed());
+        #[rustfmt::skip] println!("  {} {:<12} {:>10}", "💾", " Size".italic(), utils::format_bytes(bytes).dimmed());
     }
 
     if args.editor {
@@ -60,21 +60,38 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn log_startup(args: &RunArgs) {
-    println!("🚀 Starting TreeClip...");
-    println!("📁 Input Path: {}", args.input_path.display());
-    println!(
-        "📁 Output Path: {}",
-        args.output_path
-            .clone()
-            .unwrap_or(path::PathBuf::from("."))
-            .display()
-    );
-    println!("📋 Clipboard: {}", args.clipboard);
-    println!("📊 Stats: {}", args.stats);
-    println!("✏️  Editor: {}", args.editor);
-    println!("🗑️  Delete: {}", args.delete);
-    if !args.exclude.is_empty() {
-        println!("🚫 Exclude patterns: {:?}", args.exclude);
+#[rustfmt::skip]
+fn log_info(args: &RunArgs,root: &PathBuf,input: &PathBuf,output: &PathBuf) -> anyhow::Result<()>{
+    fn colorize_bool(val: bool) -> String {
+        if val {
+            "true".green().to_string()
+        } else {
+            "false".red().to_string()
+        }
     }
+
+    let header = format!("{} {}", "🚀", " Starting TreeClip...".bold().bright_magenta());
+    println!("{}", header);
+    println!("-----------------------");
+    println!("{} {:<width$} {}", "📁", " Root Path".bold(), root.canonicalize()?.display().to_string().cyan(), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "📁", " Input Path".bold(), input.canonicalize()?.display().to_string().cyan(), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "📁", " Output Path".bold(), output.canonicalize()?.display().to_string().cyan(), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "✏️", " Editor".bold(), colorize_bool(args.editor), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "🗑️", " Delete".bold(), colorize_bool(args.delete), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "📋", " Clipboard".bold(), colorize_bool(args.clipboard), width = constants::RIGHT_PADDING);
+    println!("{} {:<width$} {}", "📊", " Stats".bold(), colorize_bool(args.stats), width = constants::RIGHT_PADDING);
+
+    if !args.exclude.is_empty() {
+        let exclude_display = format!(
+            "[{}]",
+            args.exclude
+                .iter()
+                .map(|s| s.dimmed().to_string())
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+        println!("{} {:<width$} {}", "🚫".red(), " Exclude patterns".bold(), exclude_display, width = constants::RIGHT_PADDING);
+    }
+
+    Ok(())
 }
