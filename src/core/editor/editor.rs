@@ -3,7 +3,7 @@
 // Retrieved 2025-12-16, License - CC BY-SA 4.0
 
 use std::path::PathBuf;
-use std::{env, process};
+use std::{env, fs, process};
 
 /// Opens the file in the default text editor
 /// If the default editor is not found, uses nano as fallback.
@@ -18,7 +18,10 @@ pub fn open(path: &PathBuf) -> anyhow::Result<()> {
         ""
     };
 
-    match process::Command::new(arg.to_string()).args(path.canonicalize()).status() {
+    match process::Command::new(arg.to_string())
+        .args(path.canonicalize())
+        .status()
+    {
         Ok(status) => {
             assert!(status.success());
         }
@@ -36,6 +39,13 @@ pub fn open(path: &PathBuf) -> anyhow::Result<()> {
             assert!(status.success());
         }
     }
+
+    Ok(())
+}
+
+pub fn delete(path: &PathBuf) -> anyhow::Result<()> {
+    //note: Note that there is no guarantee that the file is immediately deleted (e.g., depending on platform, other open file descriptors may prevent immediate removal).
+    fs::remove_file(path)?;
 
     Ok(())
 }

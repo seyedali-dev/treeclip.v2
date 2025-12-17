@@ -53,7 +53,7 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
     }
 
     if args.delete && args.editor {
-        println!("(Would delete after editor closes)");
+        editor::delete(&output)?;
     }
 
     Ok(())
