@@ -26,14 +26,11 @@ anyhow = "1.0.100"
 clap = { version = "4.5.53", features = ["derive", "color", "usage", "help", "error-context", "suggestions", "unicode"] }
 walkdir = "2.5.0"
 tempfile = "3.23.0"
-predicates = "3.1.3"
 ignore = "0.4.25"
 arboard = "3.6.1"
 colored = "3.0.0"
 rand = "0.10.0-rc.5"
-textwrap = {version =  "0.16.2" , features = ["smawk"]}
 unicode-width = "0.2.2"
-once_cell = "1.21.3"
 
 [profile.release]
 lto = true

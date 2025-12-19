@@ -55,6 +55,7 @@ pub enum BorderStyle {
 
 #[derive(Clone, Copy)]
 pub enum Align {
+    #[allow(dead_code)]
     Left,
     Center,
 }
@@ -143,6 +144,7 @@ impl FormattedBox {
         self
     }
 
+    #[allow(dead_code)]
     pub fn theme(mut self, theme: BoxTheme) -> Self {
         self.theme = theme;
         self
