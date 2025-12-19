@@ -1,14 +1,11 @@
 use super::args::RunArgs;
-use crate::core::constants;
-use crate::core::{clipboard::clipboard, editor::editor, traversal::walker, utils};
-use colored::{Colorize, CustomColor};
-use rand::Rng;
-use std::io::Write;
+use crate::core::ui::{animations, banner, formatter, messages};
+use crate::core::{clipboard::clipboard, editor::editor, traversal::walker};
 use std::path::{Path, PathBuf};
-use std::{env, fs, thread, time};
+use std::{env, fs};
 
 pub fn execute(args: RunArgs) -> anyhow::Result<()> {
-    print_welcome_banner();
+    banner::print_welcome();
 
     let input = if &args.input_path == Path::new(".") {
         env::current_dir()?
@@ -28,240 +25,96 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
         None => env::current_dir()?,
     };
 
-    log_info(&args, &root, &input, &output)?;
+    log_config(&args, &root, &input, &output)?;
 
-    println!(
-        "\n{}",
-        "🌳 Starting the tree adventure...".bright_cyan().bold()
-    );
-
-    // Animated loading
-    print!("{}", "🔍 Scanning files".bright_yellow());
-    for _ in 0..3 {
-        print!(".");
-        std::io::stdout().flush().unwrap();
-        thread::sleep(time::Duration::from_millis(300));
-    }
-    println!();
+    println!("\n{}", messages::Messages::starting_adventure());
+    animations::animated_dots(&messages::Messages::scanning_files(), 3, 300);
 
     // Run core logic
     let walker = walker::Walker::new(&root, &input, &output, &args.exclude);
 
-    // Simulate progress
-    show_spinner("Traversing directory tree".to_string());
+    let spinner = animations::Spinner::new_tree();
+    spinner.spin(&messages::Messages::traversing_tree(), 1200);
     walker.process_dir(&args)?;
 
-    println!(
-        "\n{}",
-        "🎉 Successfully gathered all the leaves!"
-            .bright_green()
-            .bold()
-    );
+    println!("\n{}", messages::Messages::gathering_leaves());
 
     let mut clip = clipboard::Clipboard::new(&output)?;
 
     if args.clipboard {
-        show_spinner("Copying to clipboard".to_string());
+        let spinner = animations::Spinner::new_loading();
+        spinner.spin(&messages::Messages::copying_clipboard(), 800);
         clip.set_clipboard()?;
-        println!(
-            "{} {}",
-            "📋".green(),
-            "Clipboard updated! Ready to paste anywhere~".bright_green()
-        );
+        println!("{}", messages::Messages::clipboard_ready());
     } else {
-        println!(
-            "{} {:<width$}",
-            "😴",
-            "Clipboard nap time - skipping copy"
-                .bold()
-                .custom_color(CustomColor::from(constants::WARNING_COLOR)),
-            width = constants::RIGHT_PADDING
-        );
+        println!("{}", messages::Messages::clipboard_skipped());
     }
 
     if args.stats {
-        println!(
-            "\n{}",
-            "📊 Let's see what we've collected!".bright_magenta().bold()
-        );
+        println!("\n{}", messages::Messages::showing_stats());
         show_stats(&output)?;
     }
 
     if args.editor {
-        println!(
-            "\n{}",
-            "✏️  Opening your treasure chest...".bright_cyan().bold()
-        );
+        println!("\n{}", messages::Messages::opening_editor());
         editor::open(&output)?;
-        println!("{}", "👀 Hope you like what you see!".bright_cyan());
+        println!("{}", messages::Messages::editor_opened());
     }
 
     if args.delete && args.editor {
-        println!(
-            "\n{}",
-            "🗑️  Cleaning up after the party...".bright_yellow().bold()
-        );
+        println!("\n{}", messages::Messages::cleaning_up());
         editor::delete(&output)?;
-        println!(
-            "{}",
-            "✨ All cleaned up! No traces left behind~".bright_green()
-        );
+        println!("{}", messages::Messages::cleaned_up());
     }
 
-    print_goodbye_message();
+    banner::print_goodbye();
     Ok(())
 }
 
-fn print_welcome_banner() {
-    let banner = r#"
-    ╔══════════════════════════════════════════════╗
-    ║   🌳  T R E E C L I P  🌳                    ║
-    ║    Traverse & Extract with Cuteness!         ║
-    ║                                              ║
-    ║    (づ｡◕‿‿◕｡)づ Let's gather some leaves!   ║
-    ╚══════════════════════════════════════════════╝
-    "#;
-
-    println!("{}", banner.bright_magenta());
-}
-
-fn print_goodbye_message() {
-    println!("\n{}", "━".repeat(50).bright_cyan());
-
-    let messages = vec![
-        "✨ Mission accomplished! ✨",
-        "🎯 All done! Time for a cookie break~ 🍪",
-        "🌟 Great work! Your code is ready to shine!",
-        "💫 TreeClip adventure complete! Until next time~",
-    ];
-
-    let mut rng = rand::rng();
-    let message = messages[rng.random_range(0..messages.len())];
-
-    println!("{}", message.bright_green().bold());
-    println!(
-        "{} {}",
-        get_random_kaomoji(),
-        "Have a wonderful day!".bright_yellow()
-    );
-    println!("{}", "━".repeat(50).bright_cyan());
-}
-
-fn get_random_kaomoji() -> String {
-    let mut rng = rand::rng();
-    constants::KAOMOJIS[rng.random_range(0..constants::KAOMOJIS.len())].to_string()
-}
-
-fn show_spinner(message: String) {
-    let spinner_chars = vec!["🌱", "🌿", "🍃", "🍂", "🌳", "🌲"];
-    for i in 0..6 {
-        print!(
-            "\r{}{} {}",
-            spinner_chars[i % spinner_chars.len()],
-            message.bright_cyan(),
-            "...".bright_yellow()
-        );
-        std::io::stdout().flush().unwrap();
-        thread::sleep(time::Duration::from_millis(200));
-    }
-    println!("\r{} {}", "✅".green(), "Done!".bright_green());
-}
-
 fn show_stats(output: &PathBuf) -> anyhow::Result<()> {
+    use colored::Colorize;
+
     let content = fs::read_to_string(output)?;
     let lines = content.split("\n").count();
     let chars = content.chars().count();
     let words = content.split_whitespace().count();
     let bytes = content.len();
 
-    let stats_box = format!(
-        "┌─────────────────────────────────────────┐\n\
-         │          📊 Content Statistics          │\n\
-         ├─────────────────────────────────────────┤\n\
-         │  📝 Characters: {:>20}  │\n\
-         │  📄 Lines:      {:>20}  │\n\
-         │  💬 Words:      {:>20}  │\n\
-         │  💾 Size:       {:>20}  │\n\
-         └─────────────────────────────────────────┘",
-        utils::format_number(chars as i64).bright_white(),
-        utils::format_number(lines as i64).bright_white(),
-        utils::format_number(words as i64).bright_white(),
-        utils::format_bytes(bytes).bright_white()
-    );
+    let stats = formatter::StatsBox::new(lines, chars, words, bytes);
+    println!("{}", stats.render().bright_cyan());
 
-    println!("{}", stats_box.bright_cyan());
-
-    // Fun messages based on content size
-    if bytes < 1024 {
-        println!("{} {}", "🐣".yellow(), "Tiny but mighty!".bright_yellow());
-    } else if bytes < 1024 * 100 {
-        println!(
-            "{} {}",
-            "🐇".green(),
-            "Perfect size! Easy to handle~".bright_green()
-        );
-    } else if bytes < 1024 * 1024 {
-        println!(
-            "{} {}",
-            "🐘".cyan(),
-            "That's a big one! Impressive~".bright_cyan()
-        );
-    } else {
-        println!(
-            "{} {}",
-            "🐋".bright_blue(),
-            "Whoa! You've got a whale of content!".bright_blue()
-        );
-    }
+    let (emoji, message) = stats.get_size_message();
+    println!("  {} {}", emoji, message);
 
     Ok(())
 }
 
 #[rustfmt::skip]
-fn log_info(args: &RunArgs, root: &PathBuf, input: &PathBuf, output: &PathBuf) -> anyhow::Result<()>{
-    fn colorize_bool(val: bool) -> String {
-        if val {
-            "✅ Yes".green().bold().to_string()
-        } else {
-            "❌ No".red().dimmed().to_string()
-        }
-    }
-
-    fn format_path(path: &PathBuf) -> String {
-        match path.canonicalize() {
-            Ok(p) => p.display().to_string().cyan().bold().to_string(),
-            Err(_) => path.display().to_string().yellow().to_string()
-        }
-    }
-
-    println!("\n{}", "🔧 Configuration Settings".bright_blue().bold());
-    println!("{}", "─".repeat(45).bright_blue());
+fn log_config(args: &RunArgs, root: &PathBuf, input: &PathBuf, output: &PathBuf) -> anyhow::Result<()> {
+    println!("{}", formatter::ConfigFormatter::format_section_header("Configuration Settings", "🔧"));
 
     let config_items = vec![
-        ("🌍 ", " Root Path", format_path(root)),
-        ("📂 ", " Input Path", format_path(input)),
-        ("💾 ", " Output Path", format_path(output)),
-        ("✏️ ", " Editor", colorize_bool(args.editor)),
-        ("🗑️ ", " Cleanup", colorize_bool(args.delete)),
-        ("📋 ", " Clipboard", colorize_bool(args.clipboard)),
-        ("📊 ", " Stats", colorize_bool(args.stats)),
-        ("👻 ", " Skip Hidden", colorize_bool(args.skip_hidden)),
+        ("🌍", "Root Path", formatter::ConfigFormatter::format_path(root)),
+        ("📂", "Input Path", formatter::ConfigFormatter::format_path(input)),
+        ("💾", "Output Path", formatter::ConfigFormatter::format_path(output)),
+        ("✏️", "Editor", formatter::ConfigFormatter::format_bool(args.editor)),
+        ("🗑️", "Cleanup", formatter::ConfigFormatter::format_bool(args.delete)),
+        ("📋", "Clipboard", formatter::ConfigFormatter::format_bool(args.clipboard)),
+        ("📊", "Stats", formatter::ConfigFormatter::format_bool(args.stats)),
+        ("👻", "Skip Hidden", formatter::ConfigFormatter::format_bool(args.skip_hidden)),
     ];
 
-    for (icon, label, value) in config_items.iter() {
-        println!("{} {:<18} {}", icon, label.bright_white(), value);
+    for (icon, label, value) in config_items {
+        println!("{}", formatter::ConfigFormatter::format_config_line(icon, label, value));
     }
 
     if !args.exclude.is_empty() {
-        println!("\n{}", "🚫 Excluded Patterns".bright_red().bold());
-        println!("{}", "─".repeat(45).bright_red());
+        println!("{}", formatter::ConfigFormatter::format_section_header("Excluded Patterns", "🚫"));
         for pattern in &args.exclude {
-            println!("   {} {}", "🔸".dimmed(), pattern.dimmed());
+            println!("{}", formatter::ConfigFormatter::format_list_item("▸", pattern));
         }
     }
 
-    println!("\n{}", "🚀 Ready to launch!".bright_green().bold());
-    println!("{}", "─".repeat(45).bright_green());
-
+    println!("{}", messages::Messages::ready_to_launch());
     Ok(())
 }

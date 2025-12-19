@@ -19,7 +19,7 @@ pub struct RunArgs {
     pub exclude: Vec<String>,
 
     /// Copy output to clipboard
-    #[arg(long, default_value_t = false)]
+    #[arg(short, long, default_value_t = false)]
     pub clipboard: bool,
 
     /// Show clipboard content statistics

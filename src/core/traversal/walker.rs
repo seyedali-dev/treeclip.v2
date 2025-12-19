@@ -1,6 +1,7 @@
 use crate::commands::run::args::RunArgs;
 use crate::core::exclude::exclude;
 use crate::core::traversal::filter;
+use crate::core::ui::animations;
 use crate::core::utils;
 use anyhow::Context;
 use colored::Colorize;
@@ -80,9 +81,10 @@ impl Walker {
                 file_count += 1;
 
                 if verbose && file_count % 5 == 0 {
-                    let emoji = tree_emojis[(file_count / 5) % tree_emojis.len()];
-                    print!("\r{} Collected {} files so far...", emoji, file_count);
-                    stdout().flush()?;
+                    if let Some(msg) = animations::progress_counter(&tree_emojis, file_count, 5) {
+                        print!("\r{}", msg);
+                        stdout().flush()?;
+                    }
                 }
 
                 let relative_path = entry_path.strip_prefix(&self.root).unwrap_or(entry_path);

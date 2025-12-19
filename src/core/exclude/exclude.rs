@@ -1,5 +1,4 @@
-use crate::core::constants;
-use colored::Colorize;
+use crate::core::ui::messages::Messages;
 use ignore::gitignore::{Gitignore, GitignoreBuilder};
 use std::path::Path;
 
@@ -16,22 +15,18 @@ impl ExcludeMatcher {
         //TODO: path is said to be concurrent non-safe = [https://doc.rust-lang.org/stable/std/fs/index.html#:~:text=For%20example%2C%20checking%20if%20a%20file%20exists%20and%20then%20creating%20it%20if%20it%20doesn%E2%80%99t%20is%20vulnerable%20to%20TOCTOU%20%2D%20another%20process%20could%20create%20the%20file%20between%20your%20check%20and%20creation%20attempt]
         if ignore_file.exists() {
             println!(
-                "{} {:<width$} {}",
-                "🔍".cyan(),
-                "Found ignore file:".bold(),
-                ignore_file.display().to_string().bright_cyan(),
-                width = constants::RIGHT_PADDING,
+                "{}",
+                Messages::found_ignore_file(&ignore_file.display().to_string())
             );
-            println!("   {} Applying rules from .treeclipignore", "📝".dimmed());
+            println!("{}", Messages::applying_ignore_rules());
             builder.add(ignore_file);
         }
 
         // 2. CLI patterns
         if !cli_patterns.is_empty() {
-            println!("   {} Adding CLI exclude patterns", "⚡".yellow());
+            println!("{}", Messages::adding_cli_patterns());
             for pat in cli_patterns {
                 builder.add_line(None, pat)?;
-                println!("      {} {}", "🚫".red(), pat.dimmed());
             }
         }
 
