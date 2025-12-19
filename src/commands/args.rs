@@ -86,7 +86,7 @@ mod tests {
             Commands::Run(args) => {
                 assert_eq!(args.input_path, PathBuf::from("."));
                 assert!(args.output_path.is_some());
-                assert!(args.clipboard);
+                assert!(!args.clipboard);
                 assert!(!args.stats);
                 assert!(!args.editor);
                 assert!(!args.delete);

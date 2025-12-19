@@ -1,7 +1,7 @@
 use crate::core::ui::table::FormattedBox;
 use crate::core::utils;
 use colored::{ColoredString, Colorize};
-use std::path::PathBuf;
+use std::path::Path;
 
 const LABEL_WIDTH: usize = 18;
 const BOX_WIDTH: usize = 55;
@@ -28,7 +28,7 @@ impl ConfigFormatter {
         )
     }
 
-    pub fn format_path(path: &PathBuf) -> ColoredString {
+    pub fn format_path(path: &Path) -> ColoredString {
         match path.canonicalize() {
             Ok(p) => p.display().to_string().cyan().bold(),
             Err(_) => path.display().to_string().yellow(),

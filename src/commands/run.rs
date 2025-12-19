@@ -1,37 +1,41 @@
 use super::args::RunArgs;
 use crate::core::ui::{animations, banner, formatter, messages};
-use crate::core::{clipboard::clipboard, editor::editor, traversal::walker};
+use crate::core::{clipboard, editor, traversal::walker};
 use std::path::{Path, PathBuf};
 use std::{env, fs};
 
-pub fn execute(args: RunArgs) -> anyhow::Result<()> {
+pub fn execute(mut args: RunArgs) -> anyhow::Result<()> {
     banner::print_welcome();
 
-    let input = if &args.input_path == Path::new(".") {
+    args.input_path = if args.input_path == Path::new(".") || args.input_path == Path::new("./") {
         env::current_dir()?
     } else {
         args.input_path.clone()
     };
 
-    let output = match &args.output_path {
-        Some(path) if path == Path::new(".") => PathBuf::from("./treeclip_temp.txt"),
-        Some(path) => path.clone(),
-        None => PathBuf::from("./treeclip_temp.txt"),
+    args.output_path = match &args.output_path {
+        Some(path) if path == Path::new(".") => Some(PathBuf::from("./treeclip_temp.txt")),
+        Some(path) => Some(path.clone()),
+        None => Some(PathBuf::from("./treeclip_temp.txt")),
     };
 
-    let root = match &args.root {
-        Some(path) if path == Path::new(".") => env::current_dir()?,
-        Some(path) => path.to_path_buf(),
-        None => env::current_dir()?,
+    args.root = match &args.root {
+        Some(path) if path == Path::new(".") => Some(env::current_dir()?),
+        Some(path) => Some(path.to_path_buf()),
+        None => Some(env::current_dir()?),
     };
 
-    log_config(&args, &root, &input, &output)?;
+    let root = args.root.as_ref().unwrap();
+    let input = &args.input_path;
+    let output = args.output_path.as_ref().unwrap();
+
+    log_config(&args)?;
 
     println!("\n{}", messages::Messages::starting_adventure());
     animations::animated_dots(&messages::Messages::scanning_files(), 3, 300);
 
     // Run core logic
-    let walker = walker::Walker::new(&root, &input, &output, &args.exclude);
+    let walker = walker::Walker::new(root, input, output, &args.exclude);
 
     let spinner = animations::Spinner::new_tree();
     spinner.spin(&messages::Messages::traversing_tree(), 1200);
@@ -39,7 +43,7 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
 
     println!("\n{}", messages::Messages::gathering_leaves());
 
-    let mut clip = clipboard::Clipboard::new(&output)?;
+    let mut clip = clipboard::Clipboard::new(output)?;
 
     if args.clipboard {
         let spinner = animations::Spinner::new_loading();
@@ -52,18 +56,18 @@ pub fn execute(args: RunArgs) -> anyhow::Result<()> {
 
     if args.stats {
         println!("\n{}", messages::Messages::showing_stats());
-        show_stats(&output)?;
+        show_stats(output)?;
     }
 
     if args.editor {
         println!("\n{}", messages::Messages::opening_editor());
-        editor::open(&output)?;
+        editor::open(output)?;
         println!("{}", messages::Messages::editor_opened());
     }
 
     if args.delete && args.editor {
         println!("\n{}", messages::Messages::cleaning_up());
-        editor::delete(&output)?;
+        editor::delete(output)?;
         println!("{}", messages::Messages::cleaned_up());
     }
 
@@ -84,19 +88,21 @@ fn show_stats(output: &PathBuf) -> anyhow::Result<()> {
     println!("{}", stats.render().bright_cyan());
 
     let (emoji, message) = stats.get_size_message();
-    println!("  {} {}", emoji, message);
+    println!("  {emoji} {message}");
 
     Ok(())
 }
 
 #[rustfmt::skip]
-fn log_config(args: &RunArgs, root: &PathBuf, input: &PathBuf, output: &PathBuf) -> anyhow::Result<()> {
+fn log_config(args: &RunArgs) -> anyhow::Result<()> {
+    let (root, input, output) = (args.root.as_ref(), &args.input_path, args.output_path.as_ref());
+
     println!("{}", formatter::ConfigFormatter::format_section_header("Configuration Settings", "🔧"));
 
     let config_items = vec![
-        ("🌍", "Root Path", formatter::ConfigFormatter::format_path(root)),
+        ("🌍", "Root Path", formatter::ConfigFormatter::format_path(root.expect("root path must be supplied either by user or default"))),
         ("📂", "Input Path", formatter::ConfigFormatter::format_path(input)),
-        ("💾", "Output Path", formatter::ConfigFormatter::format_path(output)),
+        ("💾", "Output Path", formatter::ConfigFormatter::format_path(output.expect("output path must be supplied either by user or default"))),
         ("✏️", "Editor", formatter::ConfigFormatter::format_bool(args.editor)),
         ("🗑️", "Cleanup", formatter::ConfigFormatter::format_bool(args.delete)),
         ("📋", "Clipboard", formatter::ConfigFormatter::format_bool(args.clipboard)),

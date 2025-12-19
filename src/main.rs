@@ -1,4 +1,4 @@
-use crate::commands::run::*;
+use crate::commands::run;
 use clap::Parser;
 use cli::*;
 

@@ -1,5 +1,5 @@
-use crate::commands::run::args::RunArgs;
-use crate::core::exclude::exclude;
+use crate::commands::args::RunArgs;
+use crate::core::exclude;
 use crate::core::traversal::filter;
 use crate::core::ui::animations;
 use crate::core::utils;
@@ -8,7 +8,7 @@ use colored::Colorize;
 use std::fs;
 use std::fs::File;
 use std::io::{stdout, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 pub struct Walker {
@@ -19,17 +19,12 @@ pub struct Walker {
 }
 
 impl Walker {
-    pub fn new(
-        root: &PathBuf,
-        input: &PathBuf,
-        output: &PathBuf,
-        exclude_patterns: &Vec<String>,
-    ) -> Self {
+    pub fn new(root: &Path, input: &Path, output: &Path, exclude_patterns: &[String]) -> Self {
         Self {
-            root: root.clone(),
-            input: input.clone(),
-            output: output.clone(),
-            exclude_patterns: exclude_patterns.clone(),
+            root: root.to_path_buf(),
+            input: input.to_path_buf(),
+            output: output.to_path_buf(),
+            exclude_patterns: exclude_patterns.to_owned(),
         }
     }
 }
@@ -82,7 +77,7 @@ impl Walker {
 
                 if verbose && file_count % 5 == 0 {
                     if let Some(msg) = animations::progress_counter(&tree_emojis, file_count, 5) {
-                        print!("\r{}", msg);
+                        print!("\r{msg}");
                         stdout().flush()?;
                     }
                 }
