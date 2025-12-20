@@ -1,15 +1,17 @@
 //! utils - Provides utility functions for path validation and formatting.
 
+use crate::core::errors::FileSystemError;
+use anyhow::Context;
 use std::path::Path;
 
 /// Validates that a path exists on the filesystem.
 ///
 /// # Errors
 ///
-/// Returns an error if the path does not exist.
+/// Returns `FileSystemError::PathNotFound` if the path does not exist.
 pub fn validate_path_exists(path: &Path) -> anyhow::Result<()> {
     if !path.exists() {
-        anyhow::bail!("Path does not exist: {}", path.display());
+        return Err(FileSystemError::PathNotFound(path.to_path_buf()).into());
     }
     Ok(())
 }
@@ -19,6 +21,8 @@ pub fn validate_path_exists(path: &Path) -> anyhow::Result<()> {
 /// # Examples
 ///
 /// ```
+/// use treeclip::core::utils::format_number;
+///
 /// assert_eq!(format_number(1000), "1,000");
 /// assert_eq!(format_number(1234567), "1,234,567");
 /// ```
@@ -44,6 +48,8 @@ pub fn format_number(n: i64) -> String {
 /// # Examples
 ///
 /// ```
+/// use treeclip::core::utils::format_bytes;
+///
 /// assert_eq!(format_bytes(1024), "1.0 KB");
 /// assert_eq!(format_bytes(1048576), "1.0 MB");
 /// ```
@@ -68,6 +74,20 @@ pub fn format_bytes(bytes: usize) -> String {
     }
 }
 
+/// Canonicalizes a path and provides context on failure.
+///
+/// # Errors
+///
+/// Returns `FileSystemError::CanonicalizeFailed` if canonicalization fails.
+pub fn canonicalize_path(path: &Path) -> anyhow::Result<std::path::PathBuf> {
+    path.canonicalize()
+        .map_err(|e| FileSystemError::CanonicalizeFailed {
+            path: path.to_path_buf(),
+            source: e,
+        })
+        .with_context(|| format!("Failed to resolve absolute path for: {}", path.display()))
+}
+
 #[cfg(test)]
 mod utils_tests {
     use super::*;
@@ -86,7 +106,9 @@ mod utils_tests {
     fn test_validate_path_exists_invalid() {
         let result = validate_path_exists(Path::new("/nonexistent/path"));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("does not exist"));
+
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(error_msg.contains("does not exist") || error_msg.contains("PathNotFound"));
     }
 
     #[test]
@@ -149,5 +171,37 @@ mod utils_tests {
     fn test_format_bytes_decimal_precision() {
         assert_eq!(format_bytes(1_536), "1.5 KB");
         assert_eq!(format_bytes(1_572_864), "1.5 MB");
+    }
+
+    #[test]
+    fn test_canonicalize_path_valid() -> anyhow::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let result = canonicalize_path(temp_dir.path());
+        assert!(result.is_ok());
+        Ok(())
+    }
+
+    #[test]
+    fn test_canonicalize_path_invalid() {
+        let result = canonicalize_path(Path::new("/nonexistent/path"));
+        assert!(result.is_err());
+
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(
+            error_msg.contains("Failed to resolve") || error_msg.contains("CanonicalizeFailed")
+        );
+    }
+
+    #[test]
+    fn test_validate_path_provides_context() {
+        let nonexistent = Path::new("/this/path/does/not/exist");
+        let result = validate_path_exists(nonexistent);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        let error_chain = format!("{:?}", error);
+
+        // Should contain the path in error
+        assert!(error_chain.contains("does/not/exist"));
     }
 }

@@ -4,6 +4,8 @@
 //! Posted by Peter Varo, modified by community. See post 'Timeline' for change history.
 //! Retrieved 2025-12-16, License - CC BY-SA 4.0
 
+use crate::core::errors::{EditorError, FileSystemError};
+use anyhow::Context;
 use std::path::Path;
 use std::{env, fs, process};
 
@@ -22,18 +24,42 @@ use std::{env, fs, process};
 ///
 /// # Errors
 ///
-/// Returns an error if neither the default editor nor the fallback editor can be executed.
+/// Returns `EditorError` if neither the default editor nor the fallback editor can be executed.
 pub fn open(path: &Path) -> anyhow::Result<()> {
     let command = get_platform_open_command();
 
-    match process::Command::new(command)
-        .arg(path.canonicalize()?)
-        .status()
-    {
+    if command.is_empty() {
+        return Err(EditorError::NoEditorFound(
+            "No platform-specific command available".to_string(),
+        )
+        .into());
+    }
+
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|e| FileSystemError::CanonicalizeFailed {
+            path: path.to_path_buf(),
+            source: e,
+        })
+        .with_context(|| format!("Failed to resolve absolute path for: {}", path.display()))?;
+
+    match process::Command::new(command).arg(&canonical_path).status() {
         Ok(status) if status.success() => Ok(()),
-        Ok(_) | Err(_) => {
-            eprintln!("Error opening file with default editor. Attempting CLI editor...");
+        Ok(status) => {
+            eprintln!(
+                "Default editor exited with status: {}. Attempting CLI editor...",
+                status
+            );
             open_with_cli_editor(path)
+                .with_context(|| format!("All editor attempts failed for file: {}", path.display()))
+        }
+        Err(e) => {
+            eprintln!(
+                "Error opening file with default editor: {}. Attempting CLI editor...",
+                e
+            );
+            open_with_cli_editor(path)
+                .with_context(|| format!("All editor attempts failed for file: {}", path.display()))
         }
     }
 }
@@ -47,9 +73,15 @@ pub fn open(path: &Path) -> anyhow::Result<()> {
 ///
 /// # Errors
 ///
-/// Returns an error if the file cannot be deleted.
+/// Returns `FileSystemError::DeleteFailed` if the file cannot be deleted.
 pub fn delete(path: &Path) -> anyhow::Result<()> {
-    fs::remove_file(path)?;
+    fs::remove_file(path)
+        .map_err(|e| FileSystemError::DeleteFailed {
+            path: path.to_path_buf(),
+            source: e,
+        })
+        .with_context(|| format!("Failed to delete file: {}", path.display()))?;
+
     Ok(())
 }
 
@@ -70,17 +102,31 @@ fn get_platform_open_command() -> &'static str {
 
 /// Opens the file using a CLI text editor.
 fn open_with_cli_editor(path: &Path) -> anyhow::Result<()> {
-    let default_cli_editor = env::var("EDITOR").unwrap_or_else(|err| {
-        eprintln!("Error reading EDITOR environment variable: {err}");
+    let default_cli_editor = env::var("EDITOR").unwrap_or_else(|e| {
+        eprintln!(
+            "Error reading EDITOR environment variable: {}. Falling back to nano.",
+            e
+        );
         "/bin/nano".to_string()
     });
 
-    let status = process::Command::new(default_cli_editor)
+    let status = process::Command::new(&default_cli_editor)
         .arg(path)
-        .status()?;
+        .status()
+        .map_err(|e| EditorError::OpenFailed {
+            path: path.to_path_buf(),
+            source: e,
+        })
+        .with_context(|| {
+            format!(
+                "Failed to launch editor '{}' for file: {}",
+                default_cli_editor,
+                path.display()
+            )
+        })?;
 
     if !status.success() {
-        anyhow::bail!("Editor process failed with status: {status}");
+        return Err(EditorError::ProcessFailed { status }.into());
     }
 
     Ok(())
@@ -95,7 +141,16 @@ mod editor_tests {
     #[test]
     fn test_get_platform_open_command() {
         let command = get_platform_open_command();
-        assert!(!command.is_empty() || cfg!(not(any(windows, unix, target_os = "macos"))));
+
+        if cfg!(windows) {
+            assert_eq!(command, "start");
+        } else if cfg!(target_os = "macos") {
+            assert_eq!(command, "open");
+        } else if cfg!(unix) {
+            assert_eq!(command, "xdg-open");
+        } else {
+            assert_eq!(command, "");
+        }
     }
 
     #[test]
@@ -117,6 +172,9 @@ mod editor_tests {
     fn test_delete_nonexistent_file() {
         let result = delete(Path::new("/nonexistent/file.txt"));
         assert!(result.is_err());
+
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(error_msg.contains("Failed to delete"));
     }
 
     #[test]
@@ -124,5 +182,39 @@ mod editor_tests {
         let result = open(Path::new("/nonexistent/file.txt"));
         // This will fail because canonicalize fails on non-existent paths
         assert!(result.is_err());
+
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(error_msg.contains("Failed to resolve") || error_msg.contains("canonicalize"));
+    }
+
+    #[test]
+    fn test_delete_with_permission_error() {
+        // This test is platform-specific and may not work in all environments
+        // Just ensure error handling provides context
+        let result = delete(Path::new("/root/protected_file.txt"));
+
+        if let Err(e) = result {
+            let error_msg = format!("{:?}", e);
+            assert!(error_msg.contains("Failed to delete") || error_msg.contains("permission"));
+        }
+    }
+
+    #[test]
+    fn test_delete_provides_context() -> anyhow::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("test.txt");
+
+        // Try to delete non-existent file
+        let result = delete(&file_path);
+        assert!(result.is_err());
+
+        let error = result.unwrap_err();
+        let error_chain = format!("{:?}", error);
+
+        // Should contain both the path and context
+        assert!(error_chain.contains(&file_path.display().to_string()));
+        assert!(error_chain.contains("Failed to delete"));
+
+        Ok(())
     }
 }

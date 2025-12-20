@@ -1,11 +1,15 @@
 //! clipboard - Handles system clipboard operations for file content.
 
+use crate::core::errors::{ClipboardError, FileSystemError};
 use anyhow::Context;
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::thread;
 use std::time::Duration;
+
+/// Maximum clipboard content size (100MB) to prevent memory issues.
+const MAX_CLIPBOARD_SIZE: usize = 100 * 1024 * 1024;
 
 /// Clipboard provides an interface to interact with the system clipboard.
 pub struct Clipboard {
@@ -20,12 +24,18 @@ impl Clipboard {
     ///
     /// # Errors
     ///
-    /// Returns an error if the clipboard cannot be initialized.
-    pub fn new(data: &Path) -> anyhow::Result<Self> {
+    /// Returns `ClipboardError::InitializationFailed` if the clipboard cannot be initialized.
+    pub fn new(data: &Path) -> Result<Self, ClipboardError> {
+        let clip = arboard::Clipboard::new().map_err(|e| {
+            ClipboardError::InitializationFailed(format!(
+                "Failed to access system clipboard: {}",
+                e
+            ))
+        })?;
+
         Ok(Self {
             data: data.to_path_buf(),
-            clip: arboard::Clipboard::new()
-                .with_context(|| "failed to create clipboard instance")?,
+            clip,
         })
     }
 
@@ -43,22 +53,63 @@ impl Clipboard {
     ///
     /// # Errors
     ///
-    /// Returns an error if the file cannot be read or clipboard cannot be accessed.
+    /// Returns `ClipboardError` if:
+    /// - File cannot be read
+    /// - File is too large (>100MB)
+    /// - Clipboard cannot be accessed
     pub fn set_clipboard(&mut self) -> anyhow::Result<()> {
+        // Check file size first
+        let metadata = std::fs::metadata(&self.data)
+            .with_context(|| format!("Failed to read file metadata: {}", self.data.display()))?;
+
+        let file_size = metadata.len() as usize;
+        if file_size > MAX_CLIPBOARD_SIZE {
+            return Err(ClipboardError::ContentTooLarge {
+                size: file_size,
+                max: MAX_CLIPBOARD_SIZE,
+            }
+            .into());
+        }
+
         // TODO: Optimize for huge files - consider streaming or chunking instead of loading entire file
         // Read entire file into memory (clipboard APIs require full content as string)
-        let mut output_file = File::options().read(true).open(&self.data)?;
+        let mut output_file = File::options()
+            .read(true)
+            .open(&self.data)
+            .map_err(|e| FileSystemError::ReadFailed {
+                path: self.data.clone(),
+                source: e,
+            })
+            .with_context(|| {
+                format!(
+                    "Failed to open file for clipboard operation: {}",
+                    self.data.display()
+                )
+            })?;
+
         let mut output_content = String::new();
-        output_file.read_to_string(&mut output_content)?;
+        output_file
+            .read_to_string(&mut output_content)
+            .map_err(|e| FileSystemError::ReadFailed {
+                path: self.data.clone(),
+                source: e,
+            })
+            .with_context(|| {
+                format!(
+                    "Failed to read file contents for clipboard: {}",
+                    self.data.display()
+                )
+            })?;
 
         // Set clipboard text
         // On Linux, clipboard managers usually take ownership immediately
         self.clip
             .set()
             .text(output_content)
-            .with_context(|| "failed to set output content in clipboard")?;
+            .map_err(|e| ClipboardError::SetFailed(format!("Clipboard operation failed: {}", e)))
+            .with_context(|| "Failed to set clipboard content - clipboard may not be available")?;
 
-        // NOTE: Sleep guarantees clipboard ownership (required by arboard)
+        // NOTE: Sleep guarantees clipboard ownership (required by arboard on some platforms)
         thread::sleep(Duration::from_millis(100));
 
         Ok(())
@@ -100,8 +151,19 @@ mod clipboard_tests {
         let result = clipboard.set_clipboard();
 
         // May fail in CI environments without clipboard support
-        // So we just check it doesn't panic
-        let _ = result;
+        // So we just check it doesn't panic and provides context
+        match result {
+            Ok(_) => {} // Success in environments with clipboard
+            Err(e) => {
+                // Should have context message
+                let error_msg = format!("{:?}", e);
+                assert!(
+                    error_msg.contains("clipboard") || error_msg.contains("Failed to"),
+                    "Error should have context: {}",
+                    error_msg
+                );
+            }
+        }
 
         Ok(())
     }
@@ -119,5 +181,35 @@ mod clipboard_tests {
         let _ = result;
 
         Ok(())
+    }
+
+    #[test]
+    fn test_clipboard_size_limit() -> anyhow::Result<()> {
+        let temp_dir = TempDir::new()?;
+        let file_path = temp_dir.path().join("huge.txt");
+
+        // Create a file larger than MAX_CLIPBOARD_SIZE
+        let large_content = "x".repeat(MAX_CLIPBOARD_SIZE + 1);
+        fs::write(&file_path, large_content)?;
+
+        let mut clipboard = Clipboard::new(&file_path)?;
+        let result = clipboard.set_clipboard();
+
+        assert!(result.is_err());
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(error_msg.contains("too large"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_clipboard_nonexistent_file_error() {
+        let file_path = PathBuf::from("/nonexistent/file.txt");
+        let mut clipboard = Clipboard::new(&file_path).unwrap();
+        let result = clipboard.set_clipboard();
+
+        assert!(result.is_err());
+        let error_msg = format!("{:?}", result.unwrap_err());
+        assert!(error_msg.contains("Failed to"));
     }
 }

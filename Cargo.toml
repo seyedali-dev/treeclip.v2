@@ -22,32 +22,44 @@ categories = ["command-line-utilities", "development-tools"]
 rust-version = "1.88.0"
 
 [dependencies]
-anyhow = "1.0.100"
+# Error handling - production-ready pattern
+anyhow = "1.0.100"       # Application-level error handling with context
+thiserror = "2.0.9"       # Library-level custom error types
+
+# CLI framework
 clap = { version = "4.5.53", features = ["derive", "color", "usage", "help", "error-context", "suggestions", "unicode"] }
-walkdir = "2.5.0"
-tempfile = "3.23.0"
-ignore = "0.4.25"
-arboard = "3.6.1"
-colored = "3.0.0"
-rand = "0.10.0-rc.5"
-unicode-width = "0.2.2"
+
+# File system operations
+walkdir = "2.5.0"        # Directory traversal
+ignore = "0.4.25"       # Gitignore-style pattern matching
+
+# System integrations
+arboard = "3.6.1"        # Cross-platform clipboard
+tempfile = "3.23.0"     # Temporary file handling
+
+# UI and formatting
+colored = "3.0.0"        # Terminal colors
+unicode-width = "0.2.2"  # Unicode-aware width calculations
+
+# Utilities
+rand = "0.10.0-rc.5"     # Random number generation for UI
 
 [profile.release]
-lto = true           # Link-time optimization for smaller binaries
-codegen-units = 1    # Better optimization at cost of compile time
-strip = true         # Strip symbols for smaller binary
-opt-level = 3        # Maximum optimization
+lto = true               # Link-time optimization for smaller binaries
+codegen-units = 1        # Better optimization at cost of compile time
+strip = true             # Strip symbols for smaller binary
+opt-level = 3            # Maximum optimization
 
 [profile.dev]
-opt-level = 1        # Faster compile times while developing
+opt-level = 1            # Faster compile times while developing
 
 [profile.test]
-opt-level = 1        # Reasonable performance for tests
+opt-level = 1            # Reasonable performance for tests
 
 [[bin]]
 name = "treeclip"
 path = "src/main.rs"
-doc = false          # Binary doesn't need doc tests
+doc = false              # Binary doesn't need doc tests
 
 [dev-dependencies]
 # Test dependencies would go here if needed
