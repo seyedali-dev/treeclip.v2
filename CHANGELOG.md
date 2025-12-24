@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.3](https://github.com/seyedali-dev/treeclip.v2/compare/v0.9.2...v0.9.3) - 2025-12-24
+
+### Other
+
+- restructure usage patterns into comprehensive table format
+- comprehensive usage guide with conversational tone
+- add if block in release ci
+
 ## [0.9.2](https://github.com/seyedali-dev/treeclip.v2/compare/v0.9.1...v0.9.2) - 2025-12-24
 
 ### Other
