@@ -1,0 +1,4 @@
+[workspace]
+publish = true
+repo_url = "https://github.com/seyedali-dev/treeclip.v2"
+git_release_enable = true
