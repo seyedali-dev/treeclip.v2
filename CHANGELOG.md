@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.4](https://github.com/seyedali-dev/treeclip.v2/compare/v0.9.3...v0.9.4) - 2025-12-24
+
+### Fixed
+
+- oops was using rc version which I didn't need it
+
 ## [0.9.3](https://github.com/seyedali-dev/treeclip.v2/compare/v0.9.2...v0.9.3) - 2025-12-24
 
 ### Other
