@@ -36,9 +36,21 @@ something actually useful. Learning by building real tools just hits different, 
 
 ---
 
-## Installation
+## Installation 🚀
+
+### From Crates.io (Recommended)
+
+You can install `treeclip` directly from crates.io using Cargo:
+
+```bash
+cargo install treeclip
+```
+
+This will install the binary on your system, making it available from anywhere!
 
 ### From Source
+
+If you'd rather build it yourself from the source code:
 
 ```bash
 git clone https://github.com/seyedali-dev/treeclip.v2.git
@@ -46,185 +58,59 @@ cd treeclip.v2
 cargo build --release
 ```
 
-The binary will be in `target/release/treeclip`
-
-### Using Cargo
-
-```bash
-cargo install --path .
-```
-
-This installs it globally so you can run `treeclip` from anywhere!
+The binary will be located at `target/release/treeclip`. You can also run `cargo install --path .` to install it locally from the repository folder.
 
 ---
 
-## Quick Start 🚀
+## How to Use It ✨
 
-The most common use case (what I use 90% of the time):
+The most common use case is bundling the current directory and copying it to your clipboard. It's as simple as this:
 
 ```bash
-# Bundle current directory and copy to clipboard
+# Bundle the current directory and copy it to the clipboard
 treeclip run --clipboard
 ```
 
-Now just paste into your AI chat. That's it. You're welcome. (づ｡◕‿‿◕｡)づ
+Now you can paste the entire project structure into your favorite AI chat! Easy peasy. (づ｡◕‿‿◕｡)づ
 
----
+### Common Usage Patterns
 
-## Usage Guide
+Here’s a quick guide to some of the most useful commands. The table below covers most scenarios you'll encounter!
 
-### Basic Structure
+| #      | Scenario                                        | Command                                                                                                        | What It Does                                                                                                  | When To Use                                        |
+|--------|-------------------------------------------------|----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|----------------------------------------------------|
+| **1**  | **Quick Clipboard Copy**<br>*(My Daily Driver)* | `treeclip run --clipboard`                                                                                     | • Scans current directory<br>• Creates `treeclip_temp.txt`<br>• Copies to clipboard<br>• Shows tree emojis 🌳 | Pasting code into ChatGPT/Claude/etc               |
+| **2**  | **Specific Directory + Custom Output**          | `treeclip run ./src -o ./docs/dump.txt`                                                                        | • Scans `./src` only<br>• Saves to custom location<br>• Doesn't touch clipboard                               | Documenting parts of project, creating archives    |
+| **3**  | **Exclude Build Artifacts**                     | `treeclip run -e node_modules -e target -e .git`                                                               | • Scans current directory<br>• Ignores specified patterns<br>• Can stack multiple `-e` flags                  | Projects with dependencies/build outputs           |
+| **4**  | **Review Before Sharing**                       | `treeclip run --editor --delete`                                                                               | • Creates temp file<br>• Opens in `$EDITOR`<br>• Deletes after closing                                        | When you want to edit before sharing               |
+| **5**  | **The Full Experience™**                        | `treeclip run ./my-project -o ./export/snapshot.txt -e node_modules -e "*.lock" --clipboard --stats --verbose` | • Everything at once<br>• Full control<br>• Maximum verbosity<br>• Statistics shown                           | When you want ALL the features                     |
+| **6**  | **Fast Mode (No Animations)**                   | `treeclip run --fast-mode --clipboard`                                                                         | • Instant execution<br>• No progress bars<br>• No cute emojis 😢                                              | CI/CD, scripts, large projects, or when in a hurry |
+| **7**  | **Include Hidden Files**                        | `treeclip run --no-skip-hidden`                                                                                | • Includes `.env.example`, `.editorconfig`, etc<br>• Normally skipped by default                              | When you need config files included                |
+| **8**  | **Stats Without Clipboard**                     | `treeclip run --stats`                                                                                         | • Creates output file<br>• Shows lines/words/bytes<br>• Size emoji feedback 🐣🐘🐋                            | Analyzing codebase size                            |
+| **9**  | **Just Save to File**                           | `treeclip run ./src -o output.txt --fast-mode`                                                                 | • No clipboard<br>• No stats<br>• Just saves file quickly                                                     | Archiving, documentation generation                |
+| **10** | **Verbose Progress Tracking**                   | `treeclip run --verbose --clipboard`                                                                           | • Shows every step<br>• File count updates<br>• Detailed logging                                              | Debugging, understanding what's included           |
 
-```bash
-treeclip run [INPUT_PATH] [OPTIONS]
-```
+### Pro-Tip: Use a `.treeclipignore` File!
 
-- **INPUT_PATH**: The directory to traverse (defaults to current directory `.`)
-- **OPTIONS**: Various flags to customize behavior
+For files and directories you *always* want to ignore (like `node_modules` or `target`), create a `.treeclipignore` file in your project's root directory. It works just like a `.gitignore` file!
 
-### Understanding Defaults
-
-When you run `treeclip run` with no arguments, here's what happens:
-
-- **Input:** Current directory (`.`)
-- **Output:** `./treeclip_temp.txt` in the current directory
-- **Clipboard:** Does NOT copy automatically (you need `--clipboard`)
-- **Hidden files:** Skipped (uses `--skip-hidden` by default)
-- **Stats:** Not shown
-- **Editor:** Not opened
-- **Fast mode:** Off (shows cute animations ♡)
-
----
-
-## Common Usage Patterns
-
-### 1. Quick Clipboard Copy (My Daily Driver)
-
-```bash
-treeclip run --clipboard
-```
-
-**What happens:**
-
-- Scans current directory
-- Creates `treeclip_temp.txt`
-- Copies everything to clipboard
-- Shows progress with cute tree emojis 🌳
-
-**When to use:** When you just need to paste your code into ChatGPT/Claude/etc.
-
----
-
-### 2. Specific Directory with Output File
-
-```bash
-treeclip run ./src -o ./docs/code-dump.txt
-```
-
-**What happens:**
-
-- Scans the `./src` directory
-- Saves output to `./docs/code-dump.txt`
-- Doesn't touch clipboard
-
-**When to use:** Documenting specific parts of your project, creating code archives.
-
----
-
-### 3. Exclude Noise
-
-```bash
-treeclip run --exclude node_modules --exclude target --exclude .git
-```
-
-**What happens:**
-
-- Scans current directory
-- Ignores `node_modules/`, `target/`, and `.git/`
-- You can stack multiple `--exclude` flags!
-
-**When to use:** Working with projects that have large build artifacts or dependencies.
-
-**Pro tip:** Create a `.treeclipignore` file (works like `.gitignore`) for permanent exclusions:
-
+Here's a great starting point:
 ```
 # .treeclipignore
-node_modules
-target
-.git
-dist
-build
+
+# Dependencies
+node_modules/
+target/
+.git/
+
+# Build artifacts & logs
+dist/
+build/
 *.log
+*.lock
 ```
 
----
-
-### 4. Review Before Sharing
-
-```bash
-treeclip run --editor --delete
-```
-
-**What happens:**
-
-- Creates `treeclip_temp.txt`
-- Opens it in your default editor (respects `$EDITOR`)
-- After you close the editor, deletes the temp file automatically
-
-**When to use:** When you want to review/edit the output before sharing it with AI.
-
----
-
-### 5. The Full Experience™
-
-```bash
-treeclip run ./my-project \
-  --output-path ./export/project-snapshot.txt \
-  --exclude node_modules \
-  --exclude "*.lock" \
-  --clipboard \
-  --stats \
-  --verbose
-```
-
-**What happens:**
-
-- Scans `./my-project`
-- Saves to `./export/project-snapshot.txt`
-- Excludes node_modules and lockfiles
-- Copies to clipboard
-- Shows detailed statistics (lines, words, bytes)
-- Prints verbose progress info
-
-**When to use:** When you want EVERYTHING and want to see exactly what's happening.
-
----
-
-### 6. Fast Mode for Large Projects ⚡
-
-```bash
-treeclip run --fast-mode --clipboard
-```
-
-**What happens:**
-
-- Skips all animations and progress indicators
-- Instant execution
-- Perfect for scripts or large codebases
-
-**When to use:** CI/CD pipelines, automation scripts, or when you're in a hurry.
-
----
-
-### 7. Including Hidden Files
-
-By default, TreeClip skips hidden files (those starting with `.`). To include them:
-
-```bash
-treeclip run --no-skip-hidden
-```
-
-**When to use:** When you need config files like `.env.example`, `.editorconfig`, etc.
+With this file in place, you can just run `treeclip run --clipboard` without needing to add `--exclude` flags every time. So much easier!
 
 ---
 
