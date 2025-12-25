@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.7](https://github.com/seyallius/treeclip.v2/compare/v0.9.6...v0.9.7) - 2025-12-25
+
+### Other
+
+- Add option to avoid overwriting output file
+- Document multiple inputs and commands completion
+
 ## [0.9.6](https://github.com/seyallius/treeclip.v2/compare/v0.9.5...v0.9.6) - 2025-12-25
 
 ### Added
