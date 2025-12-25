@@ -3,6 +3,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.9.5](https://github.com/seyallius/treeclip.v2/compare/v0.9.4...v0.9.5) - 2025-12-25
+
+### Fixed
+
+- rename repository username
+
 ## [0.9.4](https://github.com/seyedali-dev/treeclip.v2/compare/v0.9.3...v0.9.4) - 2025-12-24
 
 ### Fixed
