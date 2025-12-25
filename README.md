@@ -276,6 +276,8 @@ treeclip run \
 - [ ] Smart exclusion patterns (auto-detect `.gitignore`)
 - [ ] Streaming for huge projects
 - [ ] Plugin system for custom processors
+- [ ] Multiple inputs
+- [ ] Commands and Options completion
 
 But honestly? I built this to learn Rust and solve my immediate problem. If you find it useful, awesome! If you want to
 contribute, even better! ♡
