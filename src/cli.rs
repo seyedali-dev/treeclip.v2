@@ -1,27 +1,109 @@
 //! cli - Defines the command-line interface structure and available commands.
 
 use crate::commands::args;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 
 /// Main CLI structure for TreeClip application.
 #[derive(Parser)]
-#[command(name = "treeclip")]
-#[command(version = env!("CARGO_PKG_VERSION"))]
-#[command(about = "Traverse directories and extract contents")]
 #[command(
-    long_about = "Traverse directories and files, extracting contents into a temporary folder and/or clipboard."
+    name = "treeclip",
+    version = env!("CARGO_PKG_VERSION"),
+    author = "Seyedali <your-email@example.com>",
+    about = "🌳 TreeClip - Bundle your code for AI assistants",
+    long_about = "TreeClip traverses directories and extracts all file contents into a single,
+AI-friendly format with proper headers. Perfect for sharing entire codebases
+with ChatGPT, Claude, or any AI assistant!
+
+Stop copy-pasting files one by one. Let TreeClip do the heavy lifting! (◕‿◕✿)",
+    after_help = "EXAMPLES:
+    # Quick clipboard copy of current directory
+    treeclip run --clipboard
+
+    # Extract specific directory with exclusions
+    treeclip run ./src -e node_modules -e target --clipboard
+
+    # Review output before sharing
+    treeclip run --editor --delete --stats
+
+    # Fast mode for CI/CD
+    treeclip run --fast-mode -o output.txt
+
+For more examples and usage patterns, visit:
+https://github.com/seyallius/treeclip.v2?tab=readme-ov-file#how-to-use-it-
+
+Made with ♡ by someone tired of copy-pasting code files!",
+    next_line_help = true,
+    arg_required_else_help = true,
+    disable_help_subcommand = true,
+    styles = get_styles(),
+    verbatim_doc_comment
 )]
-#[command(next_line_help = true)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
 }
 
 /// Available subcommands for TreeClip.
-#[derive(clap::Subcommand)]
+#[derive(Subcommand)]
 pub enum Commands {
-    /// Run treeclip on a directory
+    /// Run TreeClip to extract and bundle code files
+    ///
+    /// This is the main command that traverses your directory,
+    /// extracts all file contents, and bundles them into a single
+    /// output file with proper headers showing file paths.
+    ///
+    /// Perfect for sharing codebases with AI assistants! 🤖
+    #[command(
+        verbatim_doc_comment,
+        after_help = "QUICK EXAMPLES:
+    treeclip run                          # Extract current dir to treeclip_temp.txt
+    treeclip run --clipboard              # Also copy to clipboard
+    treeclip run ./src -o bundle.txt      # Custom input and output
+    treeclip run -e node_modules -e .git  # Exclude patterns
+
+TIP: Create a .treeclipignore file (like .gitignore) for permanent exclusions!"
+    )]
     Run(args::RunArgs),
+}
+
+// -------------------------------------------- Private Helper Functions --------------------------------------------
+
+/// Gets custom clap styles for colorized help output.
+fn get_styles() -> clap::builder::Styles {
+    use clap::builder::styling::*;
+
+    Styles::styled()
+        .header(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Cyan))),
+        )
+        .usage(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Cyan))),
+        )
+        .literal(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Green))),
+        )
+        .placeholder(Style::new().fg_color(Some(Color::Ansi(AnsiColor::Yellow))))
+        .error(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Red))),
+        )
+        .valid(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Green))),
+        )
+        .invalid(
+            Style::new()
+                .bold()
+                .fg_color(Some(Color::Ansi(AnsiColor::Red))),
+        )
 }
 
 #[cfg(test)]
@@ -89,5 +171,28 @@ mod cli_tests {
                 assert!(args.fast_mode);
             }
         }
+    }
+
+    #[test]
+    fn test_cli_requires_subcommand() {
+        let result = Cli::try_parse_from(&["treeclip"]);
+        // Should fail because arg_required_else_help = true
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cli_version_flag() {
+        // Just ensure it doesn't panic
+        let result = Cli::try_parse_from(&["treeclip", "--version"]);
+        // Will fail in test but shouldn't panic
+        let _ = result;
+    }
+
+    #[test]
+    fn test_cli_help_flag() {
+        // Just ensure it doesn't panic
+        let result = Cli::try_parse_from(&["treeclip", "--help"]);
+        // Will fail in test but shouldn't panic
+        let _ = result;
     }
 }

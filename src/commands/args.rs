@@ -1,64 +1,185 @@
 //! args - Defines command-line arguments and their validation logic.
 
+use clap::{ArgAction, ValueHint};
 use std::path::PathBuf;
 
 /// Arguments for the `run` command.
 #[derive(clap::Args)]
 pub struct RunArgs {
-    /// Path to traverse (defaults to current directory).
-    #[arg(default_value = ".", value_parser = validate_path)]
+    /// Path to traverse (defaults to current directory)
+    ///
+    /// Specify which directory to scan and extract files from.
+    /// Use '.' for current directory or provide any valid path.
+    ///
+    /// Examples:
+    ///   treeclip run .
+    ///   treeclip run ./src
+    ///   treeclip run ~/projects/my-app
+    #[arg(
+        default_value = ".",
+        value_parser = validate_path,
+        value_hint = ValueHint::DirPath,
+        verbatim_doc_comment
+    )]
     pub input_path: PathBuf,
 
-    /// Output path for extracted file.
-    #[arg(short, long, default_value = ".", value_parser = validate_path)]
+    /// Output file path for the extracted content
+    ///
+    /// Where to save the bundled output. If not specified,
+    /// creates 'treeclip_temp.txt' in the current directory.
+    ///
+    /// Examples:
+    ///   -o output.txt
+    ///   --output-path ./exports/bundle.txt
+    #[arg(
+        short,
+        long,
+        default_value = ".",
+        value_parser = validate_path,
+        value_name = "FILE",
+        value_hint = ValueHint::FilePath,
+        verbatim_doc_comment
+    )]
     pub output_path: Option<PathBuf>,
 
-    /// Current working directory (for treeclipignore and stuff).
-    #[arg(long, default_value = ".", value_parser = validate_path)]
+    /// Root directory for .treeclipignore file lookup
+    ///
+    /// Specifies where to search for the .treeclipignore file.
+    /// Usually you don't need to change this.
+    #[arg(
+        long,
+        default_value = ".",
+        value_parser = validate_path,
+        value_name = "DIR",
+        value_hint = ValueHint::DirPath,
+        hide = true  // Hide from help unless --help is used
+    )]
     pub root: Option<PathBuf>,
 
-    /// Exclude files/folders matching these patterns.
-    #[arg(short, long)]
+    /// Exclude files/folders matching these glob patterns
+    ///
+    /// Can be specified multiple times. Supports glob patterns
+    /// like '*.log', 'node_modules', 'target/**', etc.
+    ///
+    /// Common patterns:
+    ///   -e node_modules      (exclude directory)
+    ///   -e '*.log'           (exclude all .log files)
+    ///   -e 'target'          (exclude Rust build dir)
+    ///   -e '__pycache__'     (exclude Python cache)
+    ///
+    /// Tip: Use .treeclipignore file for permanent exclusions!
+    #[arg(
+        short,
+        long,
+        value_name = "PATTERN",
+        action = ArgAction::Append,
+        verbatim_doc_comment
+    )]
     pub exclude: Vec<String>,
 
-    /// Copy output to clipboard.
-    #[arg(short, long, default_value_t = false)]
+    /// Copy the output to system clipboard
+    ///
+    /// After extraction, automatically copies the entire
+    /// output to your clipboard for easy pasting into AI chats.
+    ///
+    /// Platform notes:
+    ///   • Windows/macOS: Works out of the box
+    ///   • Linux: Requires xclip or wl-clipboard
+    #[arg(short, long, default_value_t = false, verbatim_doc_comment)]
     pub clipboard: bool,
 
-    /// Show clipboard content statistics.
-    #[arg(long, default_value_t = false)]
+    /// Show detailed statistics about the extracted content
+    ///
+    /// Displays:
+    ///   • Total lines, words, and characters
+    ///   • File size in human-readable format
+    ///   • Fun emoji feedback based on size 🐣🐘🐋
+    #[arg(long, default_value_t = false, verbatim_doc_comment)]
     pub stats: bool,
 
-    /// Open output file in the default text editor.
-    #[arg(long, default_value_t = false)]
+    /// Open the output file in your default text editor
+    ///
+    /// After extraction, opens the file for review/editing.
+    /// Respects $EDITOR environment variable on Unix systems.
+    ///
+    /// Combine with --delete to auto-cleanup after closing.
+    #[arg(long, default_value_t = false, verbatim_doc_comment)]
     pub editor: bool,
 
-    /// Delete the output file after editor is closed.
-    #[arg(long, default_value_t = false)]
+    /// Delete the output file after closing the editor
+    ///
+    /// Only works when used with --editor flag.
+    /// Perfect for temporary reviews without leaving files behind.
+    ///
+    /// Example:
+    ///   treeclip run --editor --delete  (review then cleanup)
+    #[arg(
+        long,
+        default_value_t = false,
+        requires = "editor",
+        verbatim_doc_comment
+    )]
     pub delete: bool,
 
-    /// Verbose output.
-    #[arg(short, long, default_value_t = false)]
+    /// Enable verbose output with detailed progress information
+    ///
+    /// Shows:
+    ///   • File-by-file processing updates
+    ///   • Progress counters with cute emojis
+    ///   • Detailed operation logging
+    ///
+    /// Useful for debugging or understanding what's included.
+    #[arg(short, long, default_value_t = false, verbatim_doc_comment)]
     pub verbose: bool,
 
-    /// Skip hidden files and folders in Unix systems.
-    #[arg(short, long, default_value_t = true)]
+    /// Skip hidden files and folders (starting with '.')
+    ///
+    /// Enabled by default. Use --no-skip-hidden to include
+    /// hidden files like .env.example, .editorconfig, etc.
+    ///
+    /// Examples of skipped files:
+    ///   • .git/
+    ///   • .env
+    ///   • .DS_Store
+    ///   • .vscode/
+    #[arg(short = 'H', long, default_value_t = true, verbatim_doc_comment)]
     pub skip_hidden: bool,
 
-    /// Indicates whether to extract raw content or with additional metadata.
-    #[arg(short, long, default_value_t = true)]
+    /// Extract raw content without additional metadata
+    ///
+    /// Currently always enabled. Future versions may add
+    /// metadata like file timestamps, sizes, or checksums.
+    #[arg(
+        short,
+        long,
+        default_value_t = true,
+        hide = true  // Hide until we implement non-raw mode
+    )]
     pub raw: bool,
 
-    /// Fast mode - skip animations and delays for instant execution.
-    #[arg(short, long, default_value_t = false)]
+    /// Fast mode: skip animations and execute instantly
+    ///
+    /// Disables:
+    ///   • Welcome banner
+    ///   • Progress spinners and animations
+    ///   • Cute tree emojis 🌳 (sorry!)
+    ///
+    /// Perfect for:
+    ///   • CI/CD pipelines
+    ///   • Shell scripts
+    ///   • Large projects where speed matters
+    ///   • When you're in a hurry!
+    #[arg(short, long, default_value_t = false, verbatim_doc_comment)]
     pub fast_mode: bool,
 }
 
 // -------------------------------------------- Private Helper Functions --------------------------------------------
 
 /// Validates that a path string is not empty.
+///
+/// Returns an error message if validation fails.
 fn validate_path(s: &str) -> Result<PathBuf, String> {
-    if s.is_empty() {
+    if s.trim().is_empty() {
         return Err("Path cannot be empty".to_string());
     }
     Ok(PathBuf::from(s))
@@ -82,6 +203,12 @@ mod args_tests {
         let result = validate_path("");
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cannot be empty"));
+    }
+
+    #[test]
+    fn test_validate_path_whitespace() {
+        let result = validate_path("   ");
+        assert!(result.is_err());
     }
 
     #[test]
@@ -109,6 +236,70 @@ mod args_tests {
         match cli.command {
             Commands::Run(args) => {
                 assert!(args.fast_mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_multiple_exclude_patterns() {
+        let cli = Cli::parse_from(&[
+            "treeclip",
+            "run",
+            ".",
+            "-e",
+            "node_modules",
+            "-e",
+            "target",
+            "-e",
+            "*.log",
+        ]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert_eq!(args.exclude.len(), 3);
+                assert!(args.exclude.contains(&"node_modules".to_string()));
+                assert!(args.exclude.contains(&"target".to_string()));
+                assert!(args.exclude.contains(&"*.log".to_string()));
+            }
+        }
+    }
+
+    #[test]
+    fn test_delete_requires_editor() {
+        // This should fail because --delete requires --editor
+        let result = Cli::try_parse_from(&["treeclip", "run", ".", "--delete"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_delete_with_editor_works() {
+        let cli = Cli::parse_from(&["treeclip", "run", ".", "--editor", "--delete"]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert!(args.editor);
+                assert!(args.delete);
+            }
+        }
+    }
+
+    #[test]
+    fn test_verbose_and_fast_mode_combination() {
+        // These can both be enabled (verbose will be ignored in fast mode)
+        let cli = Cli::parse_from(&["treeclip", "run", ".", "--verbose", "--fast-mode"]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert!(args.verbose);
+                assert!(args.fast_mode);
+            }
+        }
+    }
+
+    #[test]
+    fn test_clipboard_and_stats_combination() {
+        let cli = Cli::parse_from(&["treeclip", "run", ".", "--clipboard", "--stats"]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert!(args.clipboard);
+                assert!(args.stats);
             }
         }
     }
