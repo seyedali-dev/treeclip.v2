@@ -21,7 +21,7 @@ body = """
 ### {{ group | striptags | trim | upper_first }}
 
 {% for commit in commits -%}
-- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }} · *{{ commit.author.name }}* · [`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/seyedali-dev/treeclip.v2/commit/{{ commit.id }})
+- {% if commit.scope %}**{{ commit.scope }}:** {% endif %}{{ commit.message | upper_first }} · *{{ commit.author.name }}* · [`{{ commit.id | truncate(length=7, end="") }}`](https://github.com/seyallius/treeclip.v2/commit/{{ commit.id }})
 {% if commit.body %}
 <details>
 <summary>Details</summary>
@@ -89,7 +89,7 @@ sort_commits = "oldest"
 # limit_commits = 42
 
 [remote.github]
-owner = "seyedali-dev"
+owner = "seyallius"
 repo = "treeclip.v2"
 
 [bump]

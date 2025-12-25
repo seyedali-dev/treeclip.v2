@@ -53,7 +53,7 @@ This will install the binary on your system, making it available from anywhere!
 If you'd rather build it yourself from the source code:
 
 ```bash
-git clone https://github.com/seyedali-dev/treeclip.v2.git
+git clone https://github.com/seyallius/treeclip.v2.git
 cd treeclip.v2
 cargo build --release
 ```
