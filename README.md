@@ -65,7 +65,8 @@ cd treeclip.v2
 cargo build --release
 ```
 
-The binary will be located at `target/release/treeclip`. You can also run `cargo install --path .` to install it locally from the repository folder.
+The binary will be located at `target/release/treeclip`. You can also run `cargo install --path .` to install it locally
+from the repository folder.
 
 ---
 
@@ -99,9 +100,11 @@ Here’s a quick guide to some of the most useful commands. The table below cove
 
 ### Pro-Tip: Use a `.treeclipignore` File!
 
-For files and directories you *always* want to ignore (like `node_modules` or `target`), create a `.treeclipignore` file in your project's root directory. It works just like a `.gitignore` file!
+For files and directories you *always* want to ignore (like `node_modules` or `target`), create a `.treeclipignore` file
+in your project's root directory. It works just like a `.gitignore` file!
 
 Here's a great starting point:
+
 ```
 # .treeclipignore
 
@@ -117,7 +120,8 @@ build/
 *.lock
 ```
 
-With this file in place, you can just run `treeclip run --clipboard` without needing to add `--exclude` flags every time. So much easier!
+With this file in place, you can just run `treeclip run --clipboard` without needing to add `--exclude` flags every
+time. So much easier!
 
 ---
 
@@ -179,10 +183,77 @@ no missing context!
 
 ## Tips & Tricks 💡
 
+### Shell Glob Pattern Expansion
+
+⚠️ **Important Note on Shell Glob Patterns:**
+
+When using glob patterns (wildcards like `*` or `?`) with TreeClip, be aware that your shell may expand them before
+passing them to the program. This can cause unexpected behavior if matching files exist in your current directory.
+
+For example for a directory structure like this:
+
+```text
+.
+├── Cargo.toml
+├── cliff.toml
+├── something.toml
+├── event
+│   ├── main.go
+│   ├── main_test.go        # will be ignored (*_test.go)
+│   └── some_other_test.go  # will be ignored (*_test.go)
+└── src                     # entire folder will be ignored (*.rs)
+    ├── main.rs
+    ├── lib.rs
+    └── utils.rs
+```
+
+if you run:
+
+```bash
+treeclip run \
+  -e event/*_test.go \
+  -e *.rs \
+  -e *.toml
+```
+
+And `.toml` files exist in your current directory (like `Cargo.toml`, `cliff.toml`), your shell will expand `*.toml` to
+all matching filenames, resulting in:
+
+```bash
+treeclip run \
+  -e event/*_test.go \
+  -e *.rs \
+  -e Cargo.toml cliff.toml something.toml
+```
+
+This causes TreeClip to treat the expanded filenames as multiple positional arguments, leading to errors.
+
+**Solutions:**
+
+1. **Escape with quotes:**
+   ```bash
+   treeclip run \
+    -e event/*_test.go \
+    -e *.rs \
+    -e '*.toml'
+   ```
+
+2. **Escape with backslashes:**
+   ```bash
+   treeclip run \
+    -e event/*_test.go \
+    -e *.rs \
+    -e \*.toml
+   ```
+
+This only occurs when the wildcard matches files in the current directory. Patterns that don't match any files in the
+current directory (like `event/*_test.go` when no such files exist in the current directory) will not be expanded and
+will work as expected.
+
 ### Combine with Other Tools
 
 ```bash
-# Count total lines in your project
+# Count total lines in your project (treeclip already does that!)
 treeclip run --fast-mode && wc -l treeclip_temp.txt
 
 # Compare two versions of your code
