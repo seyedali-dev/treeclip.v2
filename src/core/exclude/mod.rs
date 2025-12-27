@@ -258,10 +258,7 @@ mod exclude_tests {
         let temp_dir = TempDir::new()?;
         let root = temp_dir.path();
 
-        let patterns = vec![
-            "*.log".to_string(),
-            "*_test.rs".to_string(),
-        ];
+        let patterns = vec!["*.log".to_string(), "*_test.rs".to_string()];
 
         let matcher = ExcludeMatcher::new(root, &patterns)?;
 

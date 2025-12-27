@@ -19,14 +19,35 @@ pub fn execute(mut args: RunArgs) -> anyhow::Result<()> {
     normalize_paths(&mut args)?;
 
     let root = args.root.as_ref().unwrap();
-    let input = &args.input_path;
+    let inputs = &args.input_paths;
     let output = args.output_path.as_ref().unwrap();
 
     // Log configuration
     log_config(&args)?;
 
-    // Execute traversal
-    execute_traversal(&args, root, input, output)?;
+    // Execute traversal for each input path
+    let mut any_success = false;
+    for input in inputs {
+        match execute_traversal(&args, root, input, output) {
+            Ok(()) => any_success = true,
+            Err(e) => {
+                // If it's a "No files found" error, continue to next path
+                if e.to_string().contains("No files found") {
+                    eprintln!("Warning: No files found in directory: {}", input.display());
+                    continue;
+                } else {
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    // If no directories had any files, return an error
+    if !any_success {
+        return Err(anyhow::anyhow!(
+            "No files found in any of the specified directories"
+        ));
+    }
 
     // Handle clipboard operations
     handle_clipboard(&args, output)?;
@@ -51,12 +72,17 @@ pub fn execute(mut args: RunArgs) -> anyhow::Result<()> {
 
 /// Normalizes all path arguments to absolute paths.
 fn normalize_paths(args: &mut RunArgs) -> anyhow::Result<()> {
-    // Normalize input path
-    args.input_path = if args.input_path == Path::new(".") || args.input_path == Path::new("./") {
-        env::current_dir()?
-    } else {
-        args.input_path.clone()
-    };
+    // Normalize input paths
+    let mut normalized_input_paths = Vec::new();
+    for input_path in &args.input_paths {
+        let normalized_path = if input_path == Path::new(".") || input_path == Path::new("./") {
+            env::current_dir()?
+        } else {
+            input_path.clone()
+        };
+        normalized_input_paths.push(normalized_path);
+    }
+    args.input_paths = normalized_input_paths;
 
     // Normalize output path
     args.output_path = match &args.output_path {
@@ -183,20 +209,29 @@ fn show_stats(output: &Path) -> anyhow::Result<()> {
 /// Logs the current configuration settings to stdout.
 #[rustfmt::skip]
 fn log_config(args: &RunArgs) -> anyhow::Result<()> {
-    let (root, input, output) = (
+    let (root, inputs, output) = (
         args.root.as_ref(),
-        &args.input_path,
+        &args.input_paths,
         args.output_path.as_ref(),
     );
 
     println!(
         "{}",
+        formatter::ConfigFormatter::format_section_header("Paths to traverse", "📂")
+    );
+    for path in inputs {
+        println!(
+            "{}",
+            formatter::ConfigFormatter::format_list_item("▸", &path.display().to_string())
+        );
+    }
+    println!();
+    println!(
+        "{}",
         formatter::ConfigFormatter::format_section_header("Configuration Settings", "🔧")
     );
-
     let config_items = vec![
         ("🌍", "Root Path", formatter::ConfigFormatter::format_path(root.expect("root path must be supplied"))),
-        ("📂", "Input Path", formatter::ConfigFormatter::format_path(input)),
         ("💾", "Output Path", formatter::ConfigFormatter::format_path(output.expect("output path must be supplied"))),
         ("✏️", "Editor", formatter::ConfigFormatter::format_bool(args.editor)),
         ("🗑️", "Cleanup", formatter::ConfigFormatter::format_bool(args.delete)),
@@ -239,7 +274,7 @@ mod run_tests {
     #[test]
     fn test_normalize_paths_current_dir() -> anyhow::Result<()> {
         let mut args = RunArgs {
-            input_path: PathBuf::from("."),
+            input_paths: vec![PathBuf::from(".")],
             output_path: Some(PathBuf::from(".")),
             root: Some(PathBuf::from(".")),
             exclude: vec![],
@@ -255,7 +290,7 @@ mod run_tests {
 
         normalize_paths(&mut args)?;
 
-        assert_ne!(args.input_path, PathBuf::from("."));
+        assert_ne!(args.input_paths[0], PathBuf::from("."));
         assert!(args.output_path.is_some());
         assert!(args.root.is_some());
 

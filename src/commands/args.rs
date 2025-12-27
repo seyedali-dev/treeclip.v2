@@ -6,22 +6,25 @@ use std::path::PathBuf;
 /// Arguments for the `run` command.
 #[derive(clap::Args)]
 pub struct RunArgs {
-    /// Path to traverse (defaults to current directory)
+    /// Paths to traverse (defaults to current directory)
     ///
-    /// Specify which directory to scan and extract files from.
-    /// Use '.' for current directory or provide any valid path.
+    /// Specify which directories to scan and extract files from.
+    /// Use '.' for current directory or provide any valid paths.
+    /// Multiple paths can be specified.
     ///
     /// Examples:
     ///   treeclip run .
     ///   treeclip run ./src
     ///   treeclip run ~/projects/my-app
+    ///   treeclip run . src some/other/input/path
     #[arg(
         default_value = ".",
         value_parser = validate_path,
         value_hint = ValueHint::DirPath,
-        verbatim_doc_comment
+        verbatim_doc_comment,
+        num_args = 1..,
     )]
-    pub input_path: PathBuf,
+    pub input_paths: Vec<PathBuf>,
 
     /// Output file path for the extracted content
     ///
@@ -216,7 +219,7 @@ mod args_tests {
         let cli = Cli::parse_from(&["treeclip", "run"]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.input_path, PathBuf::from("."));
+                assert_eq!(args.input_paths, vec![PathBuf::from(".")]);
                 assert!(args.output_path.is_some());
                 assert!(!args.clipboard);
                 assert!(!args.stats);
@@ -226,6 +229,19 @@ mod args_tests {
                 assert!(!args.fast_mode);
                 assert!(args.skip_hidden);
                 assert!(args.exclude.is_empty());
+            }
+        }
+    }
+
+    #[test]
+    fn test_multiple_input_paths() {
+        let cli = Cli::parse_from(&["treeclip", "run", ".", "src", "some/other/input/path"]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert_eq!(args.input_paths.len(), 3);
+                assert_eq!(args.input_paths[0], PathBuf::from("."));
+                assert_eq!(args.input_paths[1], PathBuf::from("src"));
+                assert_eq!(args.input_paths[2], PathBuf::from("some/other/input/path"));
             }
         }
     }

@@ -41,19 +41,12 @@ impl Walker {
     /// - Traversal fails
     /// - Output file cannot be written
     pub fn process_dir(&self, run_args: &RunArgs) -> anyhow::Result<()> {
-        utils::validate_path_exists(&run_args.input_path).with_context(|| {
-            format!(
-                "Input path validation failed: {}",
-                run_args.input_path.display()
-            )
-        })?;
+        // Validate that the input path exists (this is the current walker's input path)
+        utils::validate_path_exists(&self.input)
+            .with_context(|| format!("Input path validation failed: {}", self.input.display()))?;
 
-        self.traverse(run_args).with_context(|| {
-            format!(
-                "Directory traversal failed for: {}",
-                run_args.input_path.display()
-            )
-        })?;
+        self.traverse(run_args)
+            .with_context(|| format!("Directory traversal failed for: {}", self.input.display()))?;
 
         if run_args.verbose {
             println!(
@@ -87,10 +80,13 @@ impl Walker {
             !excluded && non_hidden_path
         });
 
+        // Determine if this is the first traversal (to decide whether to truncate or append)
+        let is_first_traversal = !self.output.exists();
+
         // TODO: Consider using BufWriter for better I/O performance on large outputs
         let mut file = File::options()
             .write(true)
-            .truncate(true)
+            .truncate(is_first_traversal) // Only truncate on first traversal
             .create(true)
             .open(&self.output)
             .map_err(|e| FileSystemError::WriteFailed {
@@ -104,8 +100,19 @@ impl Walker {
                 )
             })?;
 
+        // If not the first traversal, move to the end of the file to append
+        if !is_first_traversal {
+            use std::io::Seek;
+            file.seek(std::io::SeekFrom::End(0)).with_context(|| {
+                format!(
+                    "Failed to seek to end of output file: {}",
+                    self.output.display()
+                )
+            })?;
+        }
+
         let mut file_count = 0;
-        let mut first = true;
+        let mut first = is_first_traversal; // Only true for first traversal
 
         let tree_emojis = vec!["🌱", "🌿", "🍃", "🌳", "🌲", "🎄"];
 
@@ -154,9 +161,10 @@ impl Walker {
 
         if run_args.verbose {
             println!(
-                "\r{} Collected {} files total! {}",
+                "\r{} Collected {} files from {}! {}",
                 "✨".green(),
                 file_count,
+                self.input.display(),
                 "Nice work!".bright_green()
             );
         }
@@ -277,7 +285,7 @@ mod walker_tests {
         let walker = Walker::new(temp_dir.path(), temp_dir.path(), &output, &vec![]);
 
         let args = RunArgs {
-            input_path: temp_dir.path().to_path_buf(),
+            input_paths: vec![temp_dir.path().to_path_buf()],
             output_path: Some(output.clone()),
             root: Some(temp_dir.path().to_path_buf()),
             exclude: vec![],
@@ -316,7 +324,7 @@ mod walker_tests {
         let walker = Walker::new(temp_dir.path(), temp_dir.path(), &output_path, &vec![]);
 
         let args = RunArgs {
-            input_path: temp_dir.path().to_path_buf(),
+            input_paths: vec![temp_dir.path().to_path_buf()],
             output_path: Some(output_path.clone()),
             root: Some(temp_dir.path().to_path_buf()),
             exclude: vec![],
@@ -352,10 +360,15 @@ mod walker_tests {
         let temp_dir = TempDir::new().unwrap();
         let output = temp_dir.path().join("output.txt");
 
-        let walker = Walker::new(temp_dir.path(), temp_dir.path(), &output, &vec![]);
+        let walker = Walker::new(
+            temp_dir.path(),
+            &PathBuf::from("/nonexistent/path"),
+            &output,
+            &vec![],
+        );
 
         let args = RunArgs {
-            input_path: PathBuf::from("/nonexistent/path"),
+            input_paths: vec![PathBuf::from("/nonexistent/path")],
             output_path: Some(output),
             root: Some(temp_dir.path().to_path_buf()),
             exclude: vec![],
@@ -388,7 +401,7 @@ mod walker_tests {
         let walker = Walker::new(temp_dir.path(), &empty_dir, &output, &vec![]);
 
         let args = RunArgs {
-            input_path: empty_dir.clone(),
+            input_paths: vec![empty_dir.clone()],
             output_path: Some(output),
             root: Some(temp_dir.path().to_path_buf()),
             exclude: vec![],
@@ -437,7 +450,7 @@ mod walker_tests {
             &exclude_patterns,
         );
         let args = RunArgs {
-            input_path: temp_dir.path().to_path_buf(),
+            input_paths: vec![temp_dir.path().to_path_buf()],
             output_path: Some(output.to_path_buf()),
             root: Some(temp_dir.path().to_path_buf()),
             exclude: exclude_patterns,

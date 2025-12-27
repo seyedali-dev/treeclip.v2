@@ -117,7 +117,20 @@ mod cli_tests {
         let cli = Cli::parse_from(&["treeclip", "run", "test_dir"]);
         match cli.command {
             Commands::Run(args) => {
-                assert_eq!(args.input_path, PathBuf::from("test_dir"));
+                assert_eq!(args.input_paths, vec![PathBuf::from("test_dir")]);
+            }
+        }
+    }
+
+    #[test]
+    fn test_cli_parse_multiple_input_paths() {
+        let cli = Cli::parse_from(&["treeclip", "run", "dir1", "dir2", "dir3"]);
+        match cli.command {
+            Commands::Run(args) => {
+                assert_eq!(args.input_paths.len(), 3);
+                assert_eq!(args.input_paths[0], PathBuf::from("dir1"));
+                assert_eq!(args.input_paths[1], PathBuf::from("dir2"));
+                assert_eq!(args.input_paths[2], PathBuf::from("dir3"));
             }
         }
     }
@@ -137,7 +150,7 @@ mod cli_tests {
         match cli.command {
             Commands::Run(args) => {
                 assert_eq!(args.exclude, vec!["node_modules", ".git"]);
-                assert_eq!(args.input_path, PathBuf::from("."));
+                assert_eq!(args.input_paths, vec![PathBuf::from(".")]);
             }
         }
     }
